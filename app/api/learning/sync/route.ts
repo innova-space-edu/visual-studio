@@ -4,31 +4,22 @@ import {NextRequest,NextResponse} from "next/server";
 import {sameOriginOrIngestToken} from "@/lib/server/learning-auth";
 import {decryptLearningSecret} from "@/lib/server/learning-crypto";
 import {
-  createSyncJob,findBatchByKey,getDriveAccount,insertBatch,updateDriveAccount,updateSyncJob,upsertRuns
+  createSyncJob,findBatchByKey,getDriveAccount,insertBatch,insertObservations,
+  updateDriveAccount,updateSyncJob,upsertRuns
 } from "@/lib/server/learning-db";
+import {scanSkillCandidate} from "@/lib/server/learning-intelligence";
+import {extractLearningObservations,sanitizeLearningEvent,type CloudLearningEvent} from "@/lib/server/learning-sanitize";
 import {refreshDriveAccessToken,uploadDriveFile} from "@/lib/server/google-drive";
 
 export const runtime="nodejs";
 export const maxDuration=60;
 
-type LearningEvent={
-  id:string;
-  timestamp:string;
-  type:string;
-  source?:string;
-  runId?:string|null;
-  sceneId?:string|null;
-  skill?:string|null;
-  engineVersion?:string|null;
-  payload?:Record<string,unknown>;
-};
-
 function hash(value:string){
   return createHash("sha256").update(value).digest("hex");
 }
 
-function summarizeRuns(events:LearningEvent[],batchId:string){
-  const groups=new Map<string,LearningEvent[]>();
+function summarizeRuns(events:CloudLearningEvent[],batchId:string){
+  const groups=new Map<string,CloudLearningEvent[]>();
   for(const event of events){
     if(!event.runId)continue;
     const list=groups.get(event.runId)||[];
@@ -41,8 +32,10 @@ function summarizeRuns(events:LearningEvent[],batchId:string){
     const generated=list.find(e=>e.type==="generation.completed");
     const exportEvent=[...list].reverse().find(e=>e.type.startsWith("export."));
     const feedback=[...list].reverse().find(e=>e.type==="feedback.recorded");
-    const sceneEvent=[...list].reverse().find(e=>e.payload&&typeof e.payload.scene==="object");
-    const scene=sceneEvent?.payload?.scene;
+    const initialScene=generated?.payload?.scene;
+    const finalScene=[...list].reverse().find(e=>e.payload&&typeof e.payload.scene==="object")?.payload?.scene;
+    const beforeQuality=Number(generated?.payload?.quality);
+    const afterQuality=Number(feedback?.payload?.quality??generated?.payload?.quality);
     rows.push({
       run_id:runId,
       batch_id:batchId,
@@ -50,8 +43,10 @@ function summarizeRuns(events:LearningEvent[],batchId:string){
       skill:list.find(e=>e.skill)?.skill||null,
       engine_version:list.find(e=>e.engineVersion)?.engineVersion||null,
       input_hash:typeof generated?.payload?.input==="string"?hash(String(generated.payload.input)):null,
-      final_scene_hash:scene?hash(JSON.stringify(scene)):null,
-      quality_after:Number(feedback?.payload?.quality??generated?.payload?.quality??0)||null,
+      initial_scene_hash:initialScene?hash(JSON.stringify(initialScene)):null,
+      final_scene_hash:finalScene?hash(JSON.stringify(finalScene)):null,
+      quality_before:Number.isFinite(beforeQuality)?beforeQuality:null,
+      quality_after:Number.isFinite(afterQuality)?afterQuality:null,
       accepted:feedback?feedback.payload?.rating==="good":null,
       exported:!!exportEvent,
       event_count:list.length,
@@ -72,7 +67,7 @@ export async function POST(request:NextRequest){
     const raw=await request.text();
     if(raw.length>2_500_000)return NextResponse.json({error:"Learning batch exceeds 2.5 MB"},{status:413});
     const body=JSON.parse(raw||"{}");
-    const events=Array.isArray(body.events)?body.events as LearningEvent[]:[];
+    const events=Array.isArray(body.events)?body.events as CloudLearningEvent[]:[];
     if(!events.length)return NextResponse.json({error:"No events to sync"},{status:400});
     if(events.length>250)return NextResponse.json({error:"Maximum 250 events per batch"},{status:413});
     for(const event of events){
@@ -84,7 +79,9 @@ export async function POST(request:NextRequest){
     const folderId=account.folder_map?.events;
     if(!folderId)throw new Error("Drive events folder is missing");
 
-    const jsonl=events.map(event=>JSON.stringify(event)).join("\n")+"\n";
+    // Raw content stays in IndexedDB. Cloud history receives structural/redacted events.
+    const cloudEvents=events.map(sanitizeLearningEvent);
+    const jsonl=cloudEvents.map(event=>JSON.stringify(event)).join("\n")+"\n";
     const sha256=hash(jsonl);
     const batchKey="events-"+sha256;
     const existing=await findBatchByKey(batchKey);
@@ -102,7 +99,7 @@ export async function POST(request:NextRequest){
       parentId:folderId,
       bytes:new Uint8Array(gz),
       mimeType:"application/gzip",
-      appProperties:{learningBatchKey:batchKey,sha256,eventCount:String(events.length)}
+      appProperties:{learningBatchKey:batchKey,sha256,eventCount:String(events.length),privacy:"structured-v1"}
     });
     const times=events.map(e=>new Date(e.timestamp).getTime()).filter(Number.isFinite);
     const batch=await insertBatch({
@@ -118,14 +115,30 @@ export async function POST(request:NextRequest){
       first_event_at:times.length?new Date(Math.min(...times)).toISOString():null,
       last_event_at:times.length?new Date(Math.max(...times)).toISOString():null,
       status:"synced",
-      metadata:{source:body.source||"visual-studio",webViewLink:uploaded.webViewLink||null},
+      metadata:{source:body.source||"visual-studio",webViewLink:uploaded.webViewLink||null,privacy:"structured-v1"},
       synced_at:new Date().toISOString()
     });
+
     const runs=summarizeRuns(events,batch.id);
     if(runs.length)await upsertRuns(runs);
+    const observations=extractLearningObservations(events);
+    if(observations.length)await insertObservations(observations);
+
+    const optimizer:any[]=[];
+    for(const skill of [...new Set(observations.map(row=>String(row.skill||"")).filter(Boolean))]){
+      try{optimizer.push({skill,...await scanSkillCandidate(skill)});}
+      catch(error){optimizer.push({skill,created:false,reason:String(error)});}
+    }
+
     await updateDriveAccount({status:"connected",last_sync_at:new Date().toISOString(),last_error:null});
-    await updateSyncJob(job.id,{status:"success",batch_id:batch.id,completed_at:new Date().toISOString()});
-    return NextResponse.json({ok:true,batchId:batch.id,driveFileId:uploaded.id,eventIds:events.map(e=>e.id),sizeBytes:gz.byteLength});
+    await updateSyncJob(job.id,{
+      status:"success",batch_id:batch.id,completed_at:new Date().toISOString(),
+      metadata:{observations:observations.length,optimizer}
+    });
+    return NextResponse.json({
+      ok:true,batchId:batch.id,driveFileId:uploaded.id,eventIds:events.map(e=>e.id),
+      sizeBytes:gz.byteLength,observations:observations.length,optimizer
+    });
   }catch(error){
     const message=String(error).slice(0,1000);
     if(job?.id)try{await updateSyncJob(job.id,{status:"error",error:message,completed_at:new Date().toISOString()});}catch{}
