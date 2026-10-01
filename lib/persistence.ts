@@ -1,11 +1,12 @@
 import type { VisualDocument, VisualScene } from "@innova-space/visual-engine";
 
 const DB_NAME="innova-visual-studio";
-const DB_VERSION=3;
+const DB_VERSION=4;
 const DOCS="documents";
 const EVALS="evaluations";
 const LEARNING="learning";
 const VERSIONS="versions";
+const OUTBOX="learning-outbox";
 
 function openDb():Promise<IDBDatabase>{
   return new Promise(function(resolve,reject){
@@ -28,6 +29,11 @@ function openDb():Promise<IDBDatabase>{
         const versions=db.createObjectStore(VERSIONS,{keyPath:"id"});
         versions.createIndex("sceneId","sceneId");
         versions.createIndex("createdAt","createdAt");
+      }
+      if(!db.objectStoreNames.contains(OUTBOX)){
+        const outbox=db.createObjectStore(OUTBOX,{keyPath:"id"});
+        outbox.createIndex("status","status");
+        outbox.createIndex("createdAt","createdAt");
       }
     };
     request.onsuccess=function(){resolve(request.result);};
@@ -172,4 +178,162 @@ export async function listSceneVersions(sceneId:string,limit=30){
   const rows:any[]=await transactionPromise(tx,tx.objectStore(VERSIONS).index("sceneId").getAll(sceneId));
   db.close();
   return rows.sort((a,b)=>Number(b.createdAt)-Number(a.createdAt)).slice(0,Math.max(1,limit));
+}
+
+
+export interface LearningEventInput {
+  type:string;
+  source?:string;
+  runId?:string|null;
+  sceneId?:string|null;
+  skill?:string|null;
+  engineVersion?:string|null;
+  payload?:Record<string,unknown>;
+}
+
+export interface LearningOutboxEvent extends LearningEventInput {
+  id:string;
+  timestamp:string;
+  createdAt:number;
+  status:"pending"|"synced";
+  attempts:number;
+  lastAttemptAt?:number;
+  lastError?:string;
+  batchId?:string;
+}
+
+export async function enqueueLearningEvent(input:LearningEventInput){
+  const event:LearningOutboxEvent={
+    ...input,
+    id:crypto.randomUUID(),
+    timestamp:new Date().toISOString(),
+    createdAt:Date.now(),
+    status:"pending",
+    attempts:0
+  };
+  const db=await openDb();
+  const tx=db.transaction(OUTBOX,"readwrite");
+  await transactionPromise(tx,tx.objectStore(OUTBOX).put(event));
+  db.close();
+  void maybeSyncLearningOutbox();
+  return event;
+}
+
+export async function getPendingLearningEvents(limit=250){
+  const db=await openDb();
+  const tx=db.transaction(OUTBOX,"readonly");
+  const rows:any[]=await transactionPromise(tx,tx.objectStore(OUTBOX).index("status").getAll("pending"));
+  db.close();
+  rows.sort((a,b)=>Number(a.createdAt)-Number(b.createdAt));
+  const selected:LearningOutboxEvent[]=[];
+  let size=0;
+  for(const row of rows){
+    const estimate=JSON.stringify(row).length+1;
+    if(selected.length&&size+estimate>2_000_000)break;
+    selected.push(row);size+=estimate;
+    if(selected.length>=limit)break;
+  }
+  return selected;
+}
+
+async function patchLearningEvents(ids:string[],patch:Record<string,unknown>){
+  if(!ids.length)return;
+  const db=await openDb();
+  const tx=db.transaction(OUTBOX,"readwrite");
+  const store=tx.objectStore(OUTBOX);
+  for(const id of ids){
+    const row:any=await transactionPromise(tx,store.get(id));
+    if(row)await transactionPromise(tx,store.put({...row,...patch}));
+  }
+  db.close();
+}
+
+export async function markLearningEventsSynced(ids:string[],batchId:string){
+  await patchLearningEvents(ids,{status:"synced",batchId,lastError:undefined,lastAttemptAt:Date.now()});
+}
+
+export async function markLearningEventsAttempt(ids:string[],error:string){
+  const db=await openDb();
+  const tx=db.transaction(OUTBOX,"readwrite");
+  const store=tx.objectStore(OUTBOX);
+  for(const id of ids){
+    const row:any=await transactionPromise(tx,store.get(id));
+    if(row)await transactionPromise(tx,store.put({...row,attempts:Number(row.attempts||0)+1,lastAttemptAt:Date.now(),lastError:error.slice(0,500)}));
+  }
+  db.close();
+}
+
+export async function getLearningOutboxStats(){
+  const db=await openDb();
+  const tx=db.transaction(OUTBOX,"readonly");
+  const rows:any[]=await transactionPromise(tx,tx.objectStore(OUTBOX).getAll());
+  db.close();
+  const pending=rows.filter(row=>row.status==="pending");
+  const synced=rows.filter(row=>row.status==="synced");
+  return {
+    pending:pending.length,
+    synced:synced.length,
+    total:rows.length,
+    oldestPendingAt:pending.length?Math.min(...pending.map(row=>Number(row.createdAt||Date.now()))):null,
+    failed:pending.filter(row=>row.lastError).length
+  };
+}
+
+export async function pruneSyncedLearningEvents(olderThanMs=7*24*60*60*1000){
+  const cutoff=Date.now()-olderThanMs;
+  const db=await openDb();
+  const tx=db.transaction(OUTBOX,"readwrite");
+  const store=tx.objectStore(OUTBOX);
+  const rows:any[]=await transactionPromise(tx,store.getAll());
+  for(const row of rows){
+    if(row.status==="synced"&&Number(row.createdAt)<cutoff)store.delete(row.id);
+  }
+  db.close();
+}
+
+let syncInFlight:Promise<any>|null=null;
+
+export async function syncLearningOutbox(force=false){
+  if(typeof window==="undefined")return {ok:false,reason:"server"};
+  if(syncInFlight)return syncInFlight;
+  syncInFlight=(async()=>{
+    const pending=await getPendingLearningEvents(250);
+    if(!pending.length)return {ok:true,synced:0};
+    const oldest=Math.min(...pending.map(event=>event.createdAt));
+    if(!force&&pending.length<50&&Date.now()-oldest<15*60*1000)return {ok:true,deferred:true,pending:pending.length};
+    if(typeof navigator!=="undefined"&&!navigator.onLine)return {ok:false,offline:true,pending:pending.length};
+    try{
+      const res=await fetch("/api/learning/sync",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({source:"visual-studio",events:pending})
+      });
+      const payload=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(payload?.error||("Learning sync "+res.status));
+      const ids=Array.isArray(payload.eventIds)?payload.eventIds:pending.map(event=>event.id);
+      await markLearningEventsSynced(ids,String(payload.batchId||""));
+      await pruneSyncedLearningEvents();
+      try{localStorage.setItem("visual-learning-last-sync",String(Date.now()));}catch{}
+      return {ok:true,synced:ids.length,batchId:payload.batchId};
+    }catch(error){
+      await markLearningEventsAttempt(pending.map(event=>event.id),String(error));
+      return {ok:false,error:String(error),pending:pending.length};
+    }
+  })();
+  try{return await syncInFlight;}finally{syncInFlight=null;}
+}
+
+export function installLearningAutoSync(){
+  if(typeof window==="undefined")return ()=>{};
+  const run=()=>{void syncLearningOutbox(false);};
+  const timer=window.setInterval(run,15*60*1000);
+  window.addEventListener("online",run);
+  const visibility=()=>{if(document.visibilityState==="visible")run();};
+  document.addEventListener("visibilitychange",visibility);
+  window.setTimeout(run,3000);
+  return ()=>{
+    window.clearInterval(timer);
+    window.removeEventListener("online",run);
+    document.removeEventListener("visibilitychange",visibility);
+  };
 }
