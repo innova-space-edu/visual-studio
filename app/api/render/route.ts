@@ -5,7 +5,8 @@ import {
   type ImageNode,
   type VisualScene
 } from "@innova-space/visual-engine";
-import { hydrateMath, nodeVisualEngine } from "@innova-space/visual-engine/node";
+import { nodeVisualEngine } from "@innova-space/visual-engine/node";
+import { hydrateMathScene } from "@/lib/math-engine";
 
 export const runtime="nodejs";
 export const maxDuration=30;
@@ -49,25 +50,36 @@ export async function POST(req:NextRequest){
     validateLocalOnly(scene);
     let mathStatus="disabled";
     let mathError="";
+    let mathEngine="disabled";
+    let mathCount=0;
     if(body.math!==false){
-      try{
-        scene=await hydrateMath(scene);
-        mathStatus="ok";
-      }catch(error){
-        mathStatus="fallback";
-        mathError=String(error);
-        if(body.strictMath===true){
-          return Response.json({error:"MathJax hydration failed",detail:mathError},{
-            status:500,
-            headers:Object.assign({"X-Visual-Math":"error"},cors(origin))
-          });
-        }
+      const math=await hydrateMathScene(scene);
+      scene=math.scene;
+      mathCount=math.count;
+      mathEngine=math.engine;
+      mathStatus=math.fallbackCount>0?"fallback":"ok";
+      mathError=math.warnings.join(" | ");
+      if(body.strictMath===true&&math.fallbackCount>0){
+        return Response.json({
+          error:"Primary MathJax SVG rendering failed",
+          detail:mathError,
+          fallbackEngine:mathEngine
+        },{
+          status:500,
+          headers:Object.assign({
+            "X-Visual-Math":"error",
+            "X-Visual-Math-Engine":mathEngine,
+            "X-Visual-Math-Count":String(mathCount)
+          },cors(origin))
+        });
       }
     }
     const quality=analyzeQuality(scene);
     const responseHeaders:Record<string,string>=Object.assign({
       "X-Visual-Quality":String(quality.score),
-      "X-Visual-Math":mathStatus
+      "X-Visual-Math":mathStatus,
+      "X-Visual-Math-Engine":mathEngine,
+      "X-Visual-Math-Count":String(mathCount)
     },cors(origin));
     if(mathError)responseHeaders["X-Visual-Math-Fallback"]="1";
     const format=String(body.format||"svg").toLowerCase();

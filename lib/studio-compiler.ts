@@ -146,9 +146,8 @@ function compileHomothety(prompt:string):VisualScene{
 }
 
 function chemicalLatex(raw:string){
-  let value=raw.trim().replace(/\.$/,"").replace(/->|→/g,"\\rightarrow");
-  value=value.replace(/([A-Z][a-z]?)(\d+)/g,"$1_{$2}");
-  return "\\mathrm{"+value.replace(/\s+/g,"\\; ")+"}";
+  const value=raw.trim().replace(/\.$/,"").replace(/→/g,"->");
+  return "\\ce{"+value+"}";
 }
 
 function extractEquation(prompt:string){
@@ -237,7 +236,7 @@ function compileInfographic(prompt:string):VisualScene{
     nodes.push(text("section-body-"+i,section[1],x+28,y+180,274,190,18,520,C.ink));
   });
   if(conservation){
-    nodes.push({id:"infographic-equation",type:"math",x:376,y:685,latex:"2H_2 + O_2 \\rightarrow 2H_2O",scale:.72,paint:{fill:C.ink}});
+    nodes.push({id:"infographic-equation",type:"math",x:376,y:685,latex:"\\ce{2H2 + O2 -> 2H2O}",scale:.72,paint:{fill:C.ink}});
   }
 
   return createScene({
