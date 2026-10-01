@@ -12,6 +12,7 @@ import {
   type VisualScene
 } from "@innova-space/visual-engine";
 import { searchAssets } from "@innova-space/visual-assets";
+import { exportEvaluations, loadLatestScene, recordEvaluation, saveLocalScene } from "@/lib/persistence";
 
 type Mode="prompt"|"dsl"|"scene";
 
@@ -85,6 +86,39 @@ export default function StudioClient(){
       setError(String(e));
       setStatus("Error");
     }
+  }
+
+  async function saveCurrent(){
+    if(!scene)return;
+    await saveLocalScene(scene);
+    setStatus("Escena guardada en IndexedDB");
+  }
+
+  async function loadLast(){
+    const saved=await loadLatestScene();
+    if(!saved){setStatus("No hay escenas locales");return;}
+    setScene(saved);
+    setSceneText(JSON.stringify(saved,null,2));
+    setSvg(renderSvg(saved));
+    await refineSvg(saved);
+    setStatus("Escena local cargada");
+  }
+
+  async function evaluate(rating:"good"|"needs-work"){
+    if(!scene||!quality)return;
+    await recordEvaluation({
+      scene:scene,
+      rating:rating,
+      quality:quality.score,
+      diagnostics:quality.diagnostics
+    });
+    setStatus(rating==="good"?"Feedback: correcta":"Feedback: necesita mejora");
+  }
+
+  async function exportFeedback(){
+    const payload=await exportEvaluations();
+    downloadBlob(JSON.stringify(payload,null,2),"application/json","visual-feedback.json");
+    setStatus("Feedback local exportado");
   }
 
   async function exportPng(){
@@ -184,6 +218,10 @@ export default function StudioClient(){
         </>}
 
         <button className="primary" onClick={compile}>Compilar y renderizar</button>
+        <div className="miniActions">
+          <button onClick={saveCurrent} disabled={!scene}>Guardar local</button>
+          <button onClick={loadLast}>Cargar último</button>
+        </div>
         {error&&<p className="error">{error}</p>}
       </aside>
 
@@ -233,6 +271,13 @@ export default function StudioClient(){
         <div className="assetList">
           {assets.map(function(a:any){return <div key={a.id}><strong>{a.name}</strong><small>{a.id}</small></div>;})}
         </div>
+
+        <h3>Feedback de mejora</h3>
+        <div className="miniActions">
+          <button onClick={function(){evaluate("good");}} disabled={!scene}>Correcta</button>
+          <button onClick={function(){evaluate("needs-work");}} disabled={!scene}>Necesita mejora</button>
+        </div>
+        <button className="wideButton" onClick={exportFeedback}>Exportar feedback</button>
 
         <h3>Scene JSON</h3>
         <pre>{scene?JSON.stringify(scene,null,2).slice(0,6000):"Sin escena"}</pre>
