@@ -8,6 +8,7 @@ import {
   type VisualScene
 } from "@innova-space/visual-engine";
 import {compileStudioPrompt} from "@/lib/studio-compiler";
+import {archiveLearningJson} from "./learning-archive";
 import {analyzeStudioQuality} from "@/lib/studio-quality";
 import {goldenCasesForSkill,goldenPlan,type GoldenVisualCase} from "@/lib/learning/golden-cases";
 import {
@@ -119,6 +120,10 @@ export async function runCandidateRegression(candidateOrId:any){
     {qualityDrop:.5,semanticDrop:.5,overflowIncrease:0,failureIncrease:0,renderSlowdownPct:25}
   );
 
+  const archived=await archiveLearningJson({
+    kind:"regression",folder:"regression",prefix:"regression",
+    payload:report,metadata:{candidateId:candidate.id,skill:candidate.skill}
+  });
   const row=await insertRegressionRun({
     candidate_id:candidate.id,
     status:report.passed?"passed":"failed",
@@ -129,6 +134,7 @@ export async function runCandidateRegression(candidateOrId:any){
     candidate_metrics:report.candidateAverage,
     delta_metrics:report.deltaAverage,
     report,
+    drive_file_id:archived.fileId,
     completed_at:new Date().toISOString()
   });
   const patch:any={regression:report};
@@ -154,6 +160,10 @@ export async function scanSkillCandidate(skill:string,options:{minSamples?:numbe
   if(!candidate)return {created:false,reason:"insufficient-evidence",observations:observations.length};
   const existing=await findCandidateByKey(candidate.id);
   if(existing)return {created:false,reason:"already-exists",candidate:existing,observations:observations.length};
+  const candidateArchive=await archiveLearningJson({
+    kind:"candidate",folder:"candidates",prefix:"candidate",
+    payload:candidate,metadata:{skill:candidate.skill}
+  });
   const row=await insertCandidate({
     candidate_key:candidate.id,
     skill:candidate.skill,
@@ -163,7 +173,8 @@ export async function scanSkillCandidate(skill:string,options:{minSamples?:numbe
     sample_count:candidate.samples,
     confidence:candidate.confidence,
     proposal:candidate,
-    regression:{}
+    regression:{},
+    drive_file_id:candidateArchive.fileId
   });
   const regression=await runCandidateRegression(row);
   return {created:true,candidate:regression.candidate,report:regression.report,observations:observations.length};
