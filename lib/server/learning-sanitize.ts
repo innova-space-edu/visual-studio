@@ -119,3 +119,61 @@ export function extractLearningObservations(events:CloudLearningEvent[]){
   }
   return rows.slice(0,10000);
 }
+
+
+function sanitizeNodeStructure(node:any):any{
+  if(!node||typeof node!=="object")return null;
+  const out:any={
+    id:String(node.id||""),type:String(node.type||""),visible:node.visible!==false,locked:!!node.locked,
+    zIndex:Number(node.zIndex||0)
+  };
+  if(node.paint)out.paint={fill:node.paint.fill,stroke:node.paint.stroke,strokeWidth:node.paint.strokeWidth,dash:node.paint.dash,opacity:node.paint.opacity,lineCap:node.paint.lineCap,lineJoin:node.paint.lineJoin};
+  if(node.transform)out.transform={...node.transform};
+  for(const key of ["x","y","width","height","rx","ry","cx","cy","r","x1","y1","x2","y2","scale"]){
+    if(Number.isFinite(Number(node[key])))out[key]=Number(node[key]);
+  }
+  if(Array.isArray(node.points))out.points=node.points.map((p:any)=>Array.isArray(p)?p.map(Number):p);
+  if(typeof node.d==="string")out.path={sha256:hash(node.d),characters:node.d.length};
+  if(node.type==="text"){
+    out.text=textRef(String(node.text||""));
+    out.maxWidth=node.maxWidth;
+    out.style=node.style?{...node.style}:undefined;
+  }
+  if(node.type==="math")out.latex=textRef(String(node.latex||""));
+  if(node.type==="image"){
+    const href=String(node.href||"");
+    out.imageRef={sha256:hash(href),characters:href.length,fit:node.fit};
+  }
+  if(node.type==="group")out.children=(node.children||[]).map(sanitizeNodeStructure).filter(Boolean);
+  const assetId=node.metadata?.assetId;
+  if(typeof assetId==="string")out.assetId=assetId;
+  return out;
+}
+
+export function sanitizeSceneStructure(scene:VisualScene){
+  const selected=scene.metadata?.selected_skills;
+  const payload={
+    schema:"visual-learning-scene/1.0",
+    sceneId:scene.id,width:scene.width,height:scene.height,background:scene.background,
+    visualType:typeof scene.metadata?.visual_type==="string"?scene.metadata.visual_type:null,
+    selectedSkills:Array.isArray(selected)?selected.map(String):[],
+    nodes:scene.nodes.map(sanitizeNodeStructure).filter(Boolean)
+  };
+  const serialized=JSON.stringify(payload);
+  return {sha256:hash(serialized),serialized,payload};
+}
+
+export function extractSceneArtifacts(events:CloudLearningEvent[]){
+  const map=new Map<string,{sha256:string;serialized:string;payload:any;sceneId:string}>();
+  const add=(scene:any)=>{
+    if(!isScene(scene))return;
+    const artifact=sanitizeSceneStructure(scene);
+    if(!map.has(artifact.sha256))map.set(artifact.sha256,{...artifact,sceneId:scene.id});
+  };
+  for(const event of events){
+    add(event.payload?.scene);
+    const document:any=event.payload?.document;
+    if(document&&Array.isArray(document.pages))document.pages.forEach(add);
+  }
+  return [...map.values()];
+}
