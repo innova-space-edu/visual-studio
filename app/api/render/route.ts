@@ -65,7 +65,7 @@ export async function POST(req:NextRequest){
       }
     }
     const quality=analyzeQuality(scene);
-    const responseHeaders=Object.assign({
+    const responseHeaders:Record<string,string>=Object.assign({
       "X-Visual-Quality":String(quality.score),
       "X-Visual-Math":mathStatus
     },cors(origin));
