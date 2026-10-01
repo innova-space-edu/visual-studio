@@ -91,9 +91,10 @@ export default function StudioClient(){
       setScene(next);
       setSceneText(JSON.stringify(next,null,2));
       setSvg(renderSvg(next));
+      await saveLocalScene(next);
       setStatus("Scene Graph generado · MathJax refinando");
       const mathStatus=await refineSvg(next);
-      setStatus(mathStatus==="ok"?"Render local listo · MathJax activo":mathStatus==="fallback"?"Render listo · MathJax en fallback":"Render local listo");
+      setStatus(mathStatus==="ok"?"Render local listo · MathJax activo · editable":mathStatus==="fallback"?"Render listo · MathJax en fallback · editable":"Render local listo · editable");
     }catch(e){
       setError(String(e));
       setStatus("Error");
@@ -104,6 +105,12 @@ export default function StudioClient(){
     if(!scene)return;
     await saveLocalScene(scene);
     setStatus("Escena guardada en IndexedDB");
+  }
+
+  async function openEditor(){
+    if(scene)await saveLocalScene(scene);
+    setStatus(scene?"Abriendo vista previa editable":"Abriendo editor");
+    window.location.assign("/editor");
   }
 
   async function loadLast(){
@@ -222,7 +229,7 @@ export default function StudioClient(){
         <span className="eyebrow">INNOVA SPACE · LOCAL-FIRST</span>
         <h1>Visual Engine Studio</h1>
       </div>
-      <div className="topActions"><Link className="navLink" href="/editor">Editor</Link><Link className="navLink" href="/3d">3D</Link><Link className="navLink" href="/learning">Learning</Link><Link className="navLink" href="/runtime">Runtime</Link><Link className="navLink" href="/platform">Plataforma</Link><Link className="navLink" href="/status">Status</Link><div className="status"><span className="dot"/>{status}</div></div>
+      <div className="topActions"><button className="navLink" onClick={openEditor}>Editor</button><Link className="navLink" href="/3d">3D</Link><Link className="navLink" href="/learning">Learning</Link><Link className="navLink" href="/runtime">Runtime</Link><Link className="navLink" href="/platform">Plataforma</Link><Link className="navLink" href="/status">Status</Link><div className="status"><span className="dot"/>{status}</div></div>
     </header>
 
     <section className="workspace">
@@ -267,6 +274,7 @@ export default function StudioClient(){
         <div className="panelHeader">
           <div><span className="eyebrow">RENDER</span><h2>Canvas 1200 × 800</h2></div>
           <div className="actions">
+            <button onClick={openEditor} disabled={!scene}>Editar vista</button>
             <button onClick={exportSvg} disabled={!svg}>SVG</button>
             <button onClick={()=>exportBinary("png")} disabled={!scene}>PNG 2×</button>
             <button onClick={()=>exportBinary("webp")} disabled={!scene}>WebP</button>
