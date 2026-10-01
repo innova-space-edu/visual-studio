@@ -5,12 +5,11 @@ import { visual } from "@innova-space/visual-design";
 import { compilePlanToScene, ENGINE_CAPABILITIES } from "@innova-space/visual-design/engine";
 import {
   analyzeQuality,
-  loadCanvasKit,
-  loadThreeWebGPU,
   parseVisualDSL,
   renderSvg,
   type VisualScene
 } from "@innova-space/visual-engine";
+import { loadCanvasKit, loadThreeWebGPU } from "@innova-space/visual-engine/browser";
 import { searchAssets } from "@innova-space/visual-assets";
 import { exportEvaluations, loadLatestScene, recordEvaluation, saveLocalScene } from "@/lib/persistence";
 
@@ -145,7 +144,10 @@ export default function StudioClient(){
   async function probeSkia(){
     setSkia("Cargando WASM local...");
     try{
-      const CK:any=await loadCanvasKit(function(file:string){return "/wasm/"+file;});
+      const CK:any=await loadCanvasKit({
+        scriptUrl:"/wasm/canvaskit.js",
+        wasmUrl:"/wasm/canvaskit.wasm"
+      });
       const canvas=document.getElementById("skiaProbe") as HTMLCanvasElement|null;
       if(!canvas)throw new Error("Canvas de prueba no disponible");
       const surface=CK.MakeCanvasSurface(canvas);
