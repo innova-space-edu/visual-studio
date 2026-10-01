@@ -14,7 +14,7 @@
   "dependencies": {
     "@innova-space/visual-assets": "github:innova-space-edu/visual-assets#7b6b895f0cebd8847044529bfe7948c1a804ddcd",
     "@innova-space/visual-design": "github:innova-space-edu/visual-design-skills#5d50863ea6ec8881989fa0059ca0f3356978dd02",
-    "@innova-space/visual-engine": "github:innova-space-edu/visual-engine#e9d5a7492760b1e04937bdceb2ab1841e2beac04",
+    "@innova-space/visual-engine": "github:innova-space-edu/visual-engine#ad40ea5e27c55917e3acc01f13d1173532ef11ee",
     "canvaskit-wasm": "^0.40.0",
     "next": "^16.0.0",
     "react": "^19.3.0",
