@@ -8,9 +8,13 @@ import {
   findNode,flattenNodes,groupNodes,removeNode,reorderNode,tableNodes,ungroupNode,updateNode,
   type AlignMode,type DistributeMode,type ImageNode,type LearningSnapshotV2,type VisualDocument,type VisualNode,type VisualScene
 } from "@innova-space/visual-engine";
-import {
-  exportAssetLearning,getAsset,importAssetLearning,recordAssetUsage,searchAssets
-} from "@innova-space/visual-assets";
+import * as VisualAssets from "@innova-space/visual-assets";
+
+const AssetRuntime=VisualAssets as typeof VisualAssets & {
+  recordAssetUsage:(input:any)=>any;
+  exportAssetLearning:()=>any;
+  importAssetLearning:(snapshot:any)=>void;
+};
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import ImageCropper from "@/components/editor/ImageCropper";
 import {
@@ -113,7 +117,7 @@ export default function EditorSuite(){
     return flattenNodes(scene.nodes).slice().sort((a,b)=>(b.zIndex||0)-(a.zIndex||0))
       .filter(node=>!q||node.id.toLowerCase().includes(q)||node.type.includes(q));
   },[scene,layerQuery]);
-  const assets=useMemo(()=>searchAssets(assetQuery).slice(0,60),[assetQuery]);
+  const assets=useMemo(()=>VisualAssets.searchAssets(assetQuery).slice(0,60),[assetQuery]);
 
   useEffect(()=>{
     let active=true;
@@ -128,7 +132,7 @@ export default function EditorSuite(){
       setDocument(next);setPageIndex(0);
       historyRef.current.reset(next.pages[0]||DEFAULT_SCENE);
       if(learning?.version==="2.0")learningRef.current.restore(learning);
-      if(assetLearning?.version==="1.0")try{importAssetLearning(assetLearning);}catch{}
+      if(assetLearning?.version==="1.0")try{AssetRuntime.importAssetLearning(assetLearning);}catch{}
       setStatus("Editor V4 listo · aprendizaje activo");
       void refreshVersions(next.pages[0]?.id);
     }).catch(()=>setStatus("Editor V4 listo"));
@@ -182,7 +186,7 @@ export default function EditorSuite(){
   async function persist(nextDoc:VisualDocument,nextScene:VisualScene,label:string){
     await Promise.all([
       saveVisualDocument(nextDoc),saveLocalScene(nextScene),saveLearningSnapshot(learningRef.current.snapshot(),"engine-v2"),
-      saveLearningSnapshot(exportAssetLearning(),"assets-v1"),recordSceneVersion(nextScene,label)
+      saveLearningSnapshot(AssetRuntime.exportAssetLearning(),"assets-v1"),recordSceneVersion(nextScene,label)
     ]);
   }
 
@@ -237,7 +241,7 @@ export default function EditorSuite(){
     for(const id of selectedIds){
       const node=findNode(next,id);
       const assetId=node?.metadata?.assetId;
-      if(assetId)recordAssetUsage({assetId:String(assetId),inserted:false,removed:true,kept:false});
+      if(assetId)AssetRuntime.recordAssetUsage({assetId:String(assetId),inserted:false,removed:true,kept:false});
       next=removeNode(next,id);
     }
     commit(next,"Eliminar "+selectedIds.length+" elemento(s)");
@@ -298,7 +302,7 @@ export default function EditorSuite(){
 
   function insertAsset(asset:any){
     const node=assetPreviewNode(asset,scene);
-    recordAssetUsage({assetId:String(asset.id),inserted:true,kept:true,edits:0});
+    AssetRuntime.recordAssetUsage({assetId:String(asset.id),inserted:true,kept:true,edits:0});
     addPreset(node,"Insertar asset "+String(asset.name||asset.id));
   }
 
@@ -324,7 +328,7 @@ export default function EditorSuite(){
 
   function exportDocumentJson(){
     const blob=new Blob([JSON.stringify(document,null,2)],{type:"application/json"});
-    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(document.title||document.id||"visual-document")+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
+    const url=URL.createObjectURL(blob);const a=window.document.createElement("a");a.href=url;a.download=(document.title||document.id||"visual-document")+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
     setStatus("Documento JSON exportado");
   }
 
