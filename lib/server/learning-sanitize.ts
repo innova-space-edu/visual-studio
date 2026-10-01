@@ -60,17 +60,17 @@ function numericLeaves(value:any,prefix="",out:Array<{path:string;value:number}>
 }
 
 export function extractLearningObservations(events:CloudLearningEvent[]){
-  const outcomes=new Map<string,{accepted:boolean|null;exported:boolean;quality:number|null}>();
+  const outcomes=new Map<string,{accepted:boolean|null;exported:boolean;qualityBefore:number|null;qualityAfter:number|null}>();
   for(const event of events){
     if(!event.runId)continue;
-    const prev=outcomes.get(event.runId)||{accepted:null,exported:false,quality:null};
+    const prev=outcomes.get(event.runId)||{accepted:null,exported:false,qualityBefore:null,qualityAfter:null};
     if(event.type==="feedback.recorded"){
       prev.accepted=event.payload?.rating==="good";
-      const q=Number(event.payload?.quality);if(Number.isFinite(q))prev.quality=q;
+      const q=Number(event.payload?.quality);if(Number.isFinite(q))prev.qualityAfter=q;
     }
     if(event.type.startsWith("export."))prev.exported=true;
-    if(event.type==="generation.completed"&&prev.quality==null){
-      const q=Number(event.payload?.quality);if(Number.isFinite(q))prev.quality=q;
+    if(event.type==="generation.completed"){
+      const q=Number(event.payload?.quality);if(Number.isFinite(q)){prev.qualityBefore=q;if(prev.qualityAfter==null)prev.qualityAfter=q;}
     }
     outcomes.set(event.runId,prev);
   }
@@ -88,7 +88,7 @@ export function extractLearningObservations(events:CloudLearningEvent[]){
         rows.push({
           run_id:event.runId||null,skill:event.skill||null,event_type:event.type,node_type:String(node.type)+"#"+String(node.id),
           feature:"__"+String(patch.op||"change")+"__",accepted:outcome?.accepted??null,exported:outcome?.exported??false,
-          quality_after:outcome?.quality??null,metadata:{operation:String(patch.op||"change")},occurred_at:event.timestamp
+          quality_before:outcome?.qualityBefore??null,quality_after:outcome?.qualityAfter??null,metadata:{operation:String(patch.op||"change")},occurred_at:event.timestamp
         });
         continue;
       }
@@ -100,7 +100,7 @@ export function extractLearningObservations(events:CloudLearningEvent[]){
         rows.push({
           run_id:event.runId||null,skill:event.skill||null,event_type:event.type,node_type:String(after.type)+"#"+String(after.id),
           feature:path,before_value:beforeValue,after_value:afterValue,delta:afterValue-beforeValue,
-          accepted:outcome?.accepted??null,exported:outcome?.exported??false,quality_after:outcome?.quality??null,
+          accepted:outcome?.accepted??null,exported:outcome?.exported??false,quality_before:outcome?.qualityBefore??null,quality_after:outcome?.qualityAfter??null,
           metadata:{label:typeof event.payload?.label==="string"?textRef(String(event.payload.label)):null},occurred_at:event.timestamp
         });
       }
@@ -110,7 +110,7 @@ export function extractLearningObservations(events:CloudLearningEvent[]){
         if(typeof a==="string"&&typeof b==="string"&&a!==b&&/^#[0-9a-f]{3,8}$/i.test(a)&&/^#[0-9a-f]{3,8}$/i.test(b)){
           rows.push({
             run_id:event.runId||null,skill:event.skill||null,event_type:event.type,node_type:String(after.type)+"#"+String(after.id),
-            feature:colorPath,accepted:outcome?.accepted??null,exported:outcome?.exported??false,quality_after:outcome?.quality??null,
+            feature:colorPath,accepted:outcome?.accepted??null,exported:outcome?.exported??false,quality_before:outcome?.qualityBefore??null,quality_after:outcome?.qualityAfter??null,
             metadata:{categorical:true,before:b,after:a},occurred_at:event.timestamp
           });
         }
