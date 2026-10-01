@@ -123,6 +123,11 @@ export async function POST(request:NextRequest){
       const patch:any={confidence:state.result.confidence};
       if(state.result.winner){
         patch.status="completed";patch.winner=state.result.winner;patch.completed_at=new Date().toISOString();
+        await archiveLearningJson({
+          kind:"experiment",folder:"experiments",prefix:"experiment",
+          payload:{experiment:{...experiment,...patch},outcomes:state.outcomes,result:state.result},
+          metadata:{experimentId:experiment.id,skill:experiment.skill||null}
+        });
       }
       await updateExperiment(experiment.id,patch);
       return NextResponse.json({ok:true,reward,result:state.result});
