@@ -37,9 +37,7 @@ function summarizeRuns(events:CloudLearningEvent[],batchId:string){
     const beforeQuality=Number(generated?.payload?.quality);
     const afterQuality=Number(feedback?.payload?.quality??generated?.payload?.quality);
     rows.push({
-      run_id:runId,
-      batch_id:batchId,
-      source:first.source||"visual-studio",
+      run_id:runId,batch_id:batchId,source:first.source||"visual-studio",
       skill:list.find(e=>e.skill)?.skill||null,
       engine_version:list.find(e=>e.engineVersion)?.engineVersion||null,
       input_hash:typeof generated?.payload?.input==="string"?hash(String(generated.payload.input)):null,
@@ -48,11 +46,9 @@ function summarizeRuns(events:CloudLearningEvent[],batchId:string){
       quality_before:Number.isFinite(beforeQuality)?beforeQuality:null,
       quality_after:Number.isFinite(afterQuality)?afterQuality:null,
       accepted:feedback?feedback.payload?.rating==="good":null,
-      exported:!!exportEvent,
-      event_count:list.length,
+      exported:!!exportEvent,event_count:list.length,
       metadata:{lastEventType:last.type,sceneId:last.sceneId||null},
-      started_at:first.timestamp,
-      completed_at:last.timestamp
+      started_at:first.timestamp,completed_at:last.timestamp
     });
   }
   return rows;
@@ -76,11 +72,21 @@ export async function POST(request:NextRequest){
 
     const account=await getDriveAccount();
     if(!account||account.status==="disconnected")return NextResponse.json({error:"Google Drive is not connected"},{status:409});
-    const folderId=account.folder_map?.events;
-    if(!folderId)throw new Error("Drive events folder is missing");
+    const eventsFolderId=account.folder_map?.events;
+    if(!eventsFolderId)throw new Error("Drive events folder is missing");
 
-    // Raw content stays in IndexedDB. Cloud history receives structural/redacted events.
+    // Raw user content remains in IndexedDB. Cloud history receives redacted structure and hashes.
     const cloudEvents=events.map(sanitizeLearningEvent);
+    const jsonl=cloudEvents.map(event=>JSON.stringify(event)).join("\n")+"\n";
+    const sha256=hash(jsonl);
+    const batchKey="events-"+sha256;
+    const existing=await findBatchByKey(batchKey);
+    if(existing){
+      return NextResponse.json({ok:true,duplicate:true,batchId:existing.id,eventIds:events.map(e=>e.id)});
+    }
+
+    job=await createSyncJob({source:String(body.source||"visual-studio"),status:"running",event_count:events.length});
+    const token=await refreshDriveAccessToken(decryptLearningSecret(account.refresh_token_ciphertext));
 
     const sceneArtifacts=extractSceneArtifacts(events);
     const sceneFolderId=account.folder_map?.scenes;
@@ -96,8 +102,8 @@ export async function POST(request:NextRequest){
         const sceneGz=gzipSync(Buffer.from(artifact.serialized,"utf8"),{level:9});
         const sceneName="scene-"+artifact.sha256.slice(0,20)+".json.gz";
         const uploadedScene=await uploadDriveFile({
-          accessToken:(await refreshDriveAccessToken(decryptLearningSecret(account.refresh_token_ciphertext))).access_token,
-          name:sceneName,parentId:sceneFolderId,bytes:new Uint8Array(sceneGz),mimeType:"application/gzip",
+          accessToken:token.access_token,name:sceneName,parentId:sceneFolderId,
+          bytes:new Uint8Array(sceneGz),mimeType:"application/gzip",
           appProperties:{sha256:artifact.sha256,sceneId:artifact.sceneId,privacy:"structured-v1"}
         });
         await insertLearningObject({
@@ -110,37 +116,17 @@ export async function POST(request:NextRequest){
       }
     }
 
-    const jsonl=cloudEvents.map(event=>JSON.stringify(event)).join("\n")+"\n";
-    const sha256=hash(jsonl);
-    const batchKey="events-"+sha256;
-    const existing=await findBatchByKey(batchKey);
-    if(existing)return NextResponse.json({ok:true,duplicate:true,batchId:existing.id,eventIds:events.map(e=>e.id)});
-
-    job=await createSyncJob({source:String(body.source||"visual-studio"),status:"running",event_count:events.length});
-    const refreshToken=decryptLearningSecret(account.refresh_token_ciphertext);
-    const token=await refreshDriveAccessToken(refreshToken);
     const gz=gzipSync(Buffer.from(jsonl,"utf8"),{level:9});
     const stamp=new Date().toISOString().replace(/[:.]/g,"-");
     const name="events-"+stamp+"-"+sha256.slice(0,10)+".jsonl.gz";
     const uploaded=await uploadDriveFile({
-      accessToken:token.access_token,
-      name,
-      parentId:folderId,
-      bytes:new Uint8Array(gz),
-      mimeType:"application/gzip",
+      accessToken:token.access_token,name,parentId:eventsFolderId,bytes:new Uint8Array(gz),mimeType:"application/gzip",
       appProperties:{learningBatchKey:batchKey,sha256,eventCount:String(events.length),privacy:"structured-v1"}
     });
     const times=events.map(e=>new Date(e.timestamp).getTime()).filter(Number.isFinite);
     const batch=await insertBatch({
-      batch_key:batchKey,
-      provider:"google_drive",
-      drive_file_id:uploaded.id,
-      drive_folder_id:folderId,
-      drive_path:"events/"+name,
-      sha256,
-      mime_type:"application/gzip",
-      size_bytes:gz.byteLength,
-      event_count:events.length,
+      batch_key:batchKey,provider:"google_drive",drive_file_id:uploaded.id,drive_folder_id:eventsFolderId,
+      drive_path:"events/"+name,sha256,mime_type:"application/gzip",size_bytes:gz.byteLength,event_count:events.length,
       first_event_at:times.length?new Date(Math.min(...times)).toISOString():null,
       last_event_at:times.length?new Date(Math.max(...times)).toISOString():null,
       status:"synced",
@@ -162,7 +148,7 @@ export async function POST(request:NextRequest){
     await updateDriveAccount({status:"connected",last_sync_at:new Date().toISOString(),last_error:null});
     await updateSyncJob(job.id,{
       status:"success",batch_id:batch.id,completed_at:new Date().toISOString(),
-      metadata:{observations:observations.length,optimizer}
+      metadata:{observations:observations.length,sceneObjects:sceneRefs.length,optimizer}
     });
     return NextResponse.json({
       ok:true,batchId:batch.id,driveFileId:uploaded.id,eventIds:events.map(e=>e.id),
