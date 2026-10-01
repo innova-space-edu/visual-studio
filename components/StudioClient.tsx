@@ -213,7 +213,7 @@ export default function StudioClient(){
         <span className="eyebrow">INNOVA SPACE · LOCAL-FIRST</span>
         <h1>Visual Engine Studio</h1>
       </div>
-      <div className="topActions"><Link className="navLink" href="/editor">Editor</Link><Link className="navLink" href="/3d">3D</Link><Link className="navLink" href="/learning">Learning</Link><Link className="navLink" href="/platform">Plataforma</Link><div className="status"><span className="dot"/>{status}</div></div>
+      <div className="topActions"><Link className="navLink" href="/editor">Editor</Link><Link className="navLink" href="/3d">3D</Link><Link className="navLink" href="/learning">Learning</Link><Link className="navLink" href="/runtime">Runtime</Link><Link className="navLink" href="/platform">Plataforma</Link><div className="status"><span className="dot"/>{status}</div></div>
     </header>
 
     <section className="workspace">
