@@ -1,9 +1,10 @@
 import type { VisualScene } from "@innova-space/visual-engine";
 
 const DB_NAME="innova-visual-studio";
-const DB_VERSION=1;
+const DB_VERSION=2;
 const DOCS="documents";
 const EVALS="evaluations";
+const LEARNING="learning";
 
 function openDb():Promise<IDBDatabase>{
   return new Promise(function(resolve,reject){
@@ -13,6 +14,9 @@ function openDb():Promise<IDBDatabase>{
       if(!db.objectStoreNames.contains(DOCS)){
         const docs=db.createObjectStore(DOCS,{keyPath:"id"});
         docs.createIndex("updatedAt","updatedAt");
+      }
+      if(!db.objectStoreNames.contains(LEARNING)){
+        db.createObjectStore(LEARNING,{keyPath:"id"});
       }
       if(!db.objectStoreNames.contains(EVALS)){
         const evals=db.createObjectStore(EVALS,{keyPath:"id"});
@@ -96,4 +100,22 @@ export async function exportEvaluations(){
     exportedAt:new Date().toISOString(),
     evaluations:rows
   };
+}
+
+
+export async function saveLearningSnapshot(snapshot:unknown){
+  const db=await openDb();
+  const tx=db.transaction(LEARNING,"readwrite");
+  const payload={id:"default",snapshot,updatedAt:Date.now()};
+  await transactionPromise(tx,tx.objectStore(LEARNING).put(payload));
+  db.close();
+  return payload;
+}
+
+export async function loadLearningSnapshot<T=unknown>():Promise<T|null>{
+  const db=await openDb();
+  const tx=db.transaction(LEARNING,"readonly");
+  const value:any=await transactionPromise(tx,tx.objectStore(LEARNING).get("default"));
+  db.close();
+  return value?.snapshot??null;
 }
