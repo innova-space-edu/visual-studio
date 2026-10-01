@@ -50,3 +50,20 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 .miniActions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}
 .miniActions button{font-size:11px}
 .wideButton{width:100%;font-size:11px}
+
+.topActions{display:flex;align-items:center;gap:12px}
+.navLink{display:inline-flex;align-items:center;text-decoration:none;color:#c9d7f5;border:1px solid var(--line);background:#121722;border-radius:9px;padding:8px 11px;font-size:12px}
+.navLink:hover{border-color:#48628f;color:#fff}
+.platformPage{min-height:100vh;padding:32px;max-width:1500px;margin:0 auto}
+.platformHeader{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;padding-bottom:24px;border-bottom:1px solid var(--line)}
+.platformHeader h1{font-size:34px;margin:6px 0 8px}.platformHeader p{color:var(--muted);max-width:760px;margin:0}
+.platformSummary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:22px 0}
+.platformSummary article{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.platformSummary span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.platformSummary strong{font-size:30px;display:block;margin-top:5px}
+.platformGrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:16px}
+.platformPanel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.capabilityTable{display:grid;gap:7px}.capabilityRow{display:grid;grid-template-columns:minmax(240px,2fr) 120px 100px 160px;gap:12px;align-items:center;padding:11px;border:1px solid var(--line);border-radius:10px;background:#0a0e14}
+.capabilityRow strong,.capabilityRow small{display:block}.capabilityRow small{color:var(--muted);font-size:10px;margin-top:3px}.capabilityRow>span{font-size:11px;color:var(--muted)}
+.badge{justify-self:start;padding:4px 7px;border-radius:999px;border:1px solid var(--line);text-transform:uppercase;font-size:9px!important}.badge.stable{color:#71e5ac}.badge.beta{color:#8fb0ff}.badge.experimental{color:#eab676}.badge.planned{color:#aab2c0}
+.packCard{border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 0;background:#0a0e14}.packCard strong,.packCard small{display:block}.packCard small{color:#8fb0ff;margin-top:2px}.packCard p{color:var(--muted);font-size:11px;line-height:1.5}
+@media(max-width:900px){.platformSummary{grid-template-columns:1fr 1fr}.platformGrid{grid-template-columns:1fr}.capabilityRow{grid-template-columns:1fr 90px}.capabilityRow>span:last-child{display:none}}
