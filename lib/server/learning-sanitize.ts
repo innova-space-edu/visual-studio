@@ -133,7 +133,7 @@ function sanitizeNodeStructure(node:any):any{
     if(Number.isFinite(Number(node[key])))out[key]=Number(node[key]);
   }
   if(Array.isArray(node.points))out.points=node.points.map((p:any)=>Array.isArray(p)?p.map(Number):p);
-  if(typeof node.d==="string")out.path={sha256:hash(node.d),characters:node.d.length};
+  if(typeof node.d==="string")out.d=node.d;
   if(node.type==="text"){
     out.text=textRef(String(node.text||""));
     out.maxWidth=node.maxWidth;
@@ -157,6 +157,9 @@ export function sanitizeSceneStructure(scene:VisualScene){
     sceneId:scene.id,width:scene.width,height:scene.height,background:scene.background,
     visualType:typeof scene.metadata?.visual_type==="string"?scene.metadata.visual_type:null,
     selectedSkills:Array.isArray(selected)?selected.map(String):[],
+    semanticRequirements:Array.isArray(scene.metadata?.semanticRequirements)
+      ?scene.metadata!.semanticRequirements.map((item:any)=>({id:String(item?.id||""),nodeIds:Array.isArray(item?.nodeIds)?item.nodeIds.map(String):[]}))
+      :[],
     nodes:scene.nodes.map(sanitizeNodeStructure).filter(Boolean)
   };
   const serialized=JSON.stringify(payload);
