@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { visual } from "@innova-space/visual-design";
 import { ENGINE_CAPABILITIES } from "@innova-space/visual-design/engine";
@@ -15,7 +15,7 @@ import {
 } from "@innova-space/visual-engine";
 import { loadCanvasKit, loadThreeWebGPU } from "@innova-space/visual-engine/browser";
 import { searchAssets } from "@innova-space/visual-assets";
-import { exportEvaluations, loadLatestScene, loadLearningSnapshot, recordEvaluation, saveLearningSnapshot, saveLocalScene } from "@/lib/persistence";
+import { enqueueLearningEvent, exportEvaluations, installLearningAutoSync, loadLatestScene, loadLearningSnapshot, recordEvaluation, saveLearningSnapshot, saveLocalScene } from "@/lib/persistence";
 import { compileStudioPrompt } from "@/lib/studio-compiler";
 import { analyzeStudioQuality } from "@/lib/studio-quality";
 
@@ -58,7 +58,18 @@ export default function StudioClient(){
   },[scene,mode,prompt]);
   const assets=useMemo(function(){return searchAssets(scene?"math":"").slice(0,4);},[scene]);
 
-  async function refineSvg(next:VisualScene){
+  useEffect(()=>installLearningAutoSync(),[]);
+
+  function runIdFor(target:VisualScene|null){
+    return String(target?.metadata?.learningRunId||target?.id||"studio-session");
+  }
+  function skillFor(target:VisualScene|null){
+    const metadata=target?.metadata||{};
+    const selected=Array.isArray(metadata.selected_skills)?metadata.selected_skills:[];
+    return String(selected[0]||metadata.visual_type||"generic");
+  }
+
+  async function refineSvg(next:VisualScene,runId?:string){
     try{
       const res=await fetch("/api/render",{
         method:"POST",
@@ -70,10 +81,19 @@ export default function StudioClient(){
       const engine=res.headers.get("X-Visual-Math-Engine")||"unknown";
       const count=res.headers.get("X-Visual-Math-Count")||"0";
       setMathEngine(engine+" · "+count+" expresión(es)");
-      setSvg(await res.text());
+      const rendered=await res.text();
+      setSvg(rendered);
+      void enqueueLearningEvent({
+        type:"render.math.completed",source:"visual-studio",runId:runId||runIdFor(next),sceneId:next.id,skill:skillFor(next),
+        payload:{status:mathStatus,engine,count:Number(count)||0,svgBytes:rendered.length}
+      });
       return {status:mathStatus,engine};
     }catch(e){
       setError("Refinado matemático: "+String(e));
+      void enqueueLearningEvent({
+        type:"render.math.failed",source:"visual-studio",runId:runId||runIdFor(next),sceneId:next.id,skill:skillFor(next),
+        payload:{error:String(e)}
+      });
       return {status:"error",engine:"error"};
     }
   }
@@ -81,6 +101,9 @@ export default function StudioClient(){
   async function compile(){
     setError("");
     setStatus("Compilando localmente");
+    const runId="run-"+crypto.randomUUID();
+    const input=mode==="prompt"?prompt:mode==="dsl"?dsl:sceneText;
+    void enqueueLearningEvent({type:"generation.started",source:"visual-studio",runId,payload:{mode,input}});
     try{
       let next:VisualScene;
       if(mode==="dsl"){
@@ -93,12 +116,18 @@ export default function StudioClient(){
         });
         next=compileStudioPrompt(prompt,plan);
       }
+      next={...next,metadata:{...(next.metadata||{}),learningRunId:runId}};
+      const generatedQuality=analyzeStudioQuality(next,mode==="prompt"?prompt:"");
       setScene(next);
       setSceneText(JSON.stringify(next,null,2));
       setSvg(renderSvg(next));
       await saveLocalScene(next);
+      await enqueueLearningEvent({
+        type:"generation.completed",source:"visual-studio",runId,sceneId:next.id,skill:skillFor(next),
+        payload:{mode,input,quality:generatedQuality.score,semanticScore:generatedQuality.semanticScore,visualScore:generatedQuality.visualScore,scene:next}
+      });
       setStatus("Scene Graph generado · MathJax refinando");
-      const math=await refineSvg(next);
+      const math=await refineSvg(next,runId);
       setStatus(
         math.status==="ok"
           ?"Render listo · MathJax SVG activo · editable"
@@ -109,12 +138,14 @@ export default function StudioClient(){
     }catch(e){
       setError(String(e));
       setStatus("Error");
+      void enqueueLearningEvent({type:"generation.failed",source:"visual-studio",runId,payload:{mode,input,error:String(e)}});
     }
   }
 
   async function saveCurrent(){
     if(!scene)return;
     await saveLocalScene(scene);
+    await enqueueLearningEvent({type:"scene.saved",source:"visual-studio",runId:runIdFor(scene),sceneId:scene.id,skill:skillFor(scene),payload:{scene}});
     setStatus("Escena guardada en IndexedDB");
   }
 
@@ -131,6 +162,7 @@ export default function StudioClient(){
     setSceneText(JSON.stringify(saved,null,2));
     setSvg(renderSvg(saved));
     const math=await refineSvg(saved);
+    void enqueueLearningEvent({type:"scene.loaded",source:"visual-studio",runId:runIdFor(saved),sceneId:saved.id,skill:skillFor(saved),payload:{scene:saved}});
     setStatus(math.status==="ok"?"Escena cargada · MathJax SVG activo":"Escena local cargada");
   }
 
@@ -168,6 +200,10 @@ export default function StudioClient(){
       skill,accepted:rating==="good",quality:quality.score,edits:rating==="good"?0:1,exported:false
     });
     await saveLearningSnapshot(exportAdaptiveSnapshot(),"skills-v1");
+    await enqueueLearningEvent({
+      type:"feedback.recorded",source:"visual-studio",runId:runIdFor(scene),sceneId:scene.id,skill,
+      payload:{rating,quality:quality.score,semanticScore:quality.semanticScore,visualScore:quality.visualScore,diagnostics:quality.diagnostics,scene}
+    });
     setStatus((rating==="good"?"Feedback: correcta":"Feedback: necesita mejora")+" · skill "+skillStat.samples+" muestras");
   }
 
@@ -193,7 +229,8 @@ export default function StudioClient(){
       setStatus("Error");
       return;
     }
-    downloadBlob(await res.blob(),mime[format],"visual-engine."+format);
+    const blob=await res.blob();
+    downloadBlob(blob,mime[format],"visual-engine."+format);
     const metadata=scene.metadata||{};
     const selected=Array.isArray(metadata.selected_skills)?metadata.selected_skills:[];
     const skill=String(selected[0]||metadata.visual_type||"generic");
@@ -201,6 +238,10 @@ export default function StudioClient(){
     if(adaptive?.version==="1.0")try{importAdaptiveSnapshot(adaptive);}catch{}
     recordSkillOutcome({skill,accepted:true,quality:quality?.score??100,edits:0,exported:true});
     await saveLearningSnapshot(exportAdaptiveSnapshot(),"skills-v1");
+    await enqueueLearningEvent({
+      type:"export."+format,source:"visual-studio",runId:runIdFor(scene),sceneId:scene.id,skill,
+      payload:{format,mimeType:mime[format],sizeBytes:blob.size,quality:quality?.score??null,scene}
+    });
     setStatus(labels[format]+" exportado · aprendizaje actualizado");
   }
 
@@ -214,6 +255,10 @@ export default function StudioClient(){
     if(adaptive?.version==="1.0")try{importAdaptiveSnapshot(adaptive);}catch{}
     recordSkillOutcome({skill,accepted:true,quality:quality?.score??100,edits:0,exported:true});
     await saveLearningSnapshot(exportAdaptiveSnapshot(),"skills-v1");
+    await enqueueLearningEvent({
+      type:"export.svg",source:"visual-studio",runId:runIdFor(scene),sceneId:scene.id,skill,
+      payload:{format:"svg",mimeType:"image/svg+xml",sizeBytes:svg.length,quality:quality?.score??null,scene}
+    });
     setStatus("SVG exportado · aprendizaje actualizado");
   }
 
@@ -237,9 +282,11 @@ export default function StudioClient(){
       });
       paint.delete();
       setSkia("CanvasKit/Skia WASM activo");
+      void enqueueLearningEvent({type:"runtime.skia.test",source:"visual-studio",runId:runIdFor(scene),sceneId:scene?.id||null,skill:skillFor(scene),payload:{ok:true}});
     }catch(e){
       setSkia("No disponible");
       setError(String(e));
+      void enqueueLearningEvent({type:"runtime.skia.test",source:"visual-studio",runId:runIdFor(scene),sceneId:scene?.id||null,skill:skillFor(scene),payload:{ok:false,error:String(e)}});
     }
   }
 
@@ -250,9 +297,11 @@ export default function StudioClient(){
       if(supported&&mod.WebGPURenderer)setGpu("Three WebGPU disponible");
       else if(mod.WebGPURenderer)setGpu("WebGPU no disponible · fallback WebGL2");
       else setGpu("Módulo Three cargado");
+      void enqueueLearningEvent({type:"runtime.webgpu.test",source:"visual-studio",runId:runIdFor(scene),sceneId:scene?.id||null,skill:skillFor(scene),payload:{ok:true,webgpuSupported:supported}});
     }catch(e){
       setGpu("Error de WebGPU");
       setError(String(e));
+      void enqueueLearningEvent({type:"runtime.webgpu.test",source:"visual-studio",runId:runIdFor(scene),sceneId:scene?.id||null,skill:skillFor(scene),payload:{ok:false,error:String(e)}});
     }
   }
 
@@ -262,7 +311,7 @@ export default function StudioClient(){
         <span className="eyebrow">INNOVA SPACE · LOCAL-FIRST</span>
         <h1>Visual Engine Studio</h1>
       </div>
-      <div className="topActions"><button className="navLink" onClick={openEditor}>Editor</button><Link className="navLink" href="/3d">3D</Link><Link className="navLink" href="/learning">Learning</Link><Link className="navLink" href="/runtime">Runtime</Link><Link className="navLink" href="/platform">Plataforma</Link><Link className="navLink" href="/status">Status</Link><div className="status"><span className="dot"/>{status}</div></div>
+      <div className="topActions"><button className="navLink" onClick={openEditor}>Editor</button><Link className="navLink" href="/3d">3D</Link><Link className="navLink" href="/learning">Learning</Link><Link className="navLink" href="/runtime">Runtime</Link><Link className="navLink" href="/platform">Plataforma</Link><Link className="navLink" href="/status">Status</Link><Link className="navLink" href="/admin/storage">Storage</Link><div className="status"><span className="dot"/>{status}</div></div>
     </header>
 
     <section className="workspace">
