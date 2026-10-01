@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { visual } from "@innova-space/visual-design";
 import { ENGINE_CAPABILITIES } from "@innova-space/visual-design/engine";
+import { exportAdaptiveSnapshot, importAdaptiveSnapshot, recordSkillOutcome } from "@innova-space/visual-design/runtime";
 import {
   candidateKey,
   parseVisualDSL,
@@ -161,7 +162,13 @@ export default function StudioClient(){
       edits:rating==="good"?0:1
     });
     await saveLearningSnapshot(learning.snapshot());
-    setStatus((rating==="good"?"Feedback: correcta":"Feedback: necesita mejora")+" · aprendizaje "+stat.samples+" muestras");
+    const adaptive=await loadLearningSnapshot<any>("skills-v1");
+    if(adaptive?.version==="1.0")try{importAdaptiveSnapshot(adaptive);}catch{}
+    const skillStat=recordSkillOutcome({
+      skill,accepted:rating==="good",quality:quality.score,edits:rating==="good"?0:1,exported:false
+    });
+    await saveLearningSnapshot(exportAdaptiveSnapshot(),"skills-v1");
+    setStatus((rating==="good"?"Feedback: correcta":"Feedback: necesita mejora")+" · skill "+skillStat.samples+" muestras");
   }
 
   async function exportFeedback(){
@@ -187,11 +194,27 @@ export default function StudioClient(){
       return;
     }
     downloadBlob(await res.blob(),mime[format],"visual-engine."+format);
-    setStatus(labels[format]+" exportado");
+    const metadata=scene.metadata||{};
+    const selected=Array.isArray(metadata.selected_skills)?metadata.selected_skills:[];
+    const skill=String(selected[0]||metadata.visual_type||"generic");
+    const adaptive=await loadLearningSnapshot<any>("skills-v1");
+    if(adaptive?.version==="1.0")try{importAdaptiveSnapshot(adaptive);}catch{}
+    recordSkillOutcome({skill,accepted:true,quality:quality?.score??100,edits:0,exported:true});
+    await saveLearningSnapshot(exportAdaptiveSnapshot(),"skills-v1");
+    setStatus(labels[format]+" exportado · aprendizaje actualizado");
   }
 
-  function exportSvg(){
-    if(svg)downloadBlob(svg,"image/svg+xml","visual-engine.svg");
+  async function exportSvg(){
+    if(!svg||!scene)return;
+    downloadBlob(svg,"image/svg+xml","visual-engine.svg");
+    const metadata=scene.metadata||{};
+    const selected=Array.isArray(metadata.selected_skills)?metadata.selected_skills:[];
+    const skill=String(selected[0]||metadata.visual_type||"generic");
+    const adaptive=await loadLearningSnapshot<any>("skills-v1");
+    if(adaptive?.version==="1.0")try{importAdaptiveSnapshot(adaptive);}catch{}
+    recordSkillOutcome({skill,accepted:true,quality:quality?.score??100,edits:0,exported:true});
+    await saveLearningSnapshot(exportAdaptiveSnapshot(),"skills-v1");
+    setStatus("SVG exportado · aprendizaje actualizado");
   }
 
   async function probeSkia(){

@@ -53,6 +53,15 @@ function extractSvg(serialized:string){
   return serialized.slice(start,end+6);
 }
 
+export function colorizeMathSvg(svg:string,color="#0f172a"){
+  const safe=/^#[0-9a-f]{3,8}$/i.test(color)?color:"#0f172a";
+  let next=String(svg).replace(/currentColor/g,safe);
+  if(next.startsWith("<svg")&&!/\bcolor\s*:/.test(next.slice(0,next.indexOf(">")+1))){
+    next=next.replace("<svg","<svg style=\"color:"+safe+"\"");
+  }
+  return next;
+}
+
 function subscriptDigits(value:string){
   const map:Record<string,string>={"0":"₀","1":"₁","2":"₂","3":"₃","4":"₄","5":"₅","6":"₆","7":"₇","8":"₈","9":"₉","+":"₊","-":"₋"};
   return value.split("").map(char=>map[char]||char).join("");
@@ -130,9 +139,10 @@ async function hydrateNode(node:VisualNode,state:{count:number;fallbacks:number;
     state.count++;
     if(rendered.engine!=="mathjax-svg")state.fallbacks++;
     if(rendered.warning)state.warnings.push(node.id+": "+rendered.warning);
+    const color=typeof node.paint?.fill==="string"?node.paint.fill:"#0f172a";
     return {
       ...node,
-      svg:rendered.svg,
+      svg:colorizeMathSvg(rendered.svg,color),
       metadata:{...(node.metadata||{}),mathEngine:rendered.engine}
     } as MathNode;
   }

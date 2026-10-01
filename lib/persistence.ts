@@ -1,10 +1,11 @@
-import type { VisualScene } from "@innova-space/visual-engine";
+import type { VisualDocument, VisualScene } from "@innova-space/visual-engine";
 
 const DB_NAME="innova-visual-studio";
-const DB_VERSION=2;
+const DB_VERSION=3;
 const DOCS="documents";
 const EVALS="evaluations";
 const LEARNING="learning";
+const VERSIONS="versions";
 
 function openDb():Promise<IDBDatabase>{
   return new Promise(function(resolve,reject){
@@ -22,6 +23,11 @@ function openDb():Promise<IDBDatabase>{
         const evals=db.createObjectStore(EVALS,{keyPath:"id"});
         evals.createIndex("createdAt","createdAt");
         evals.createIndex("sceneId","sceneId");
+      }
+      if(!db.objectStoreNames.contains(VERSIONS)){
+        const versions=db.createObjectStore(VERSIONS,{keyPath:"id"});
+        versions.createIndex("sceneId","sceneId");
+        versions.createIndex("createdAt","createdAt");
       }
     };
     request.onsuccess=function(){resolve(request.result);};
@@ -103,19 +109,67 @@ export async function exportEvaluations(){
 }
 
 
-export async function saveLearningSnapshot(snapshot:unknown){
+export async function saveLearningSnapshot(snapshot:unknown,key="default"){
   const db=await openDb();
   const tx=db.transaction(LEARNING,"readwrite");
-  const payload={id:"default",snapshot,updatedAt:Date.now()};
+  const payload={id:key,snapshot,updatedAt:Date.now()};
   await transactionPromise(tx,tx.objectStore(LEARNING).put(payload));
   db.close();
   return payload;
 }
 
-export async function loadLearningSnapshot<T=unknown>():Promise<T|null>{
+export async function loadLearningSnapshot<T=unknown>(key="default"):Promise<T|null>{
   const db=await openDb();
   const tx=db.transaction(LEARNING,"readonly");
-  const value:any=await transactionPromise(tx,tx.objectStore(LEARNING).get("default"));
+  const value:any=await transactionPromise(tx,tx.objectStore(LEARNING).get(key));
   db.close();
   return value?.snapshot??null;
+}
+
+
+export async function saveVisualDocument(document:VisualDocument){
+  const db=await openDb();
+  const tx=db.transaction(DOCS,"readwrite");
+  const payload={id:"document:"+document.id,document,updatedAt:Date.now(),kind:"visual-document"};
+  await transactionPromise(tx,tx.objectStore(DOCS).put(payload));
+  db.close();
+  return payload;
+}
+
+export async function loadVisualDocument(id:string):Promise<VisualDocument|null>{
+  const db=await openDb();
+  const tx=db.transaction(DOCS,"readonly");
+  const value:any=await transactionPromise(tx,tx.objectStore(DOCS).get("document:"+id));
+  db.close();
+  return value?.document??null;
+}
+
+export async function loadLatestVisualDocument():Promise<VisualDocument|null>{
+  const db=await openDb();
+  const tx=db.transaction(DOCS,"readonly");
+  const rows:any[]=await transactionPromise(tx,tx.objectStore(DOCS).getAll());
+  db.close();
+  return rows.filter(row=>row.kind==="visual-document"&&row.document)
+    .sort((a,b)=>Number(b.updatedAt||0)-Number(a.updatedAt||0))[0]?.document??null;
+}
+
+export async function recordSceneVersion(scene:VisualScene,label="edit"){
+  const db=await openDb();
+  const tx=db.transaction(VERSIONS,"readwrite");
+  const createdAt=Date.now();
+  const payload={
+    id:scene.id+":"+createdAt+":"+Math.random().toString(36).slice(2,7),
+    sceneId:scene.id,label,scene:structuredClone(scene),createdAt
+  };
+  await transactionPromise(tx,tx.objectStore(VERSIONS).put(payload));
+  db.close();
+  return payload;
+}
+
+export async function listSceneVersions(sceneId:string,limit=30){
+  const db=await openDb();
+  const tx=db.transaction(VERSIONS,"readonly");
+  const rows:any[]=await transactionPromise(tx,tx.objectStore(VERSIONS).index("sceneId").getAll(sceneId));
+  db.close();
+  return rows.sort((a,b)=>Number(b.createdAt)-Number(a.createdAt)).slice(0,Math.max(1,limit));
 }
