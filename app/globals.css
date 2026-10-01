@@ -84,3 +84,6 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 .threeLab{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
 .threeHeader{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}.threeHeader h2{margin:3px 0 0}
 .threeCanvas{display:block;width:100%;height:min(65vh,650px);background:#0b1020;border:1px solid var(--line);border-radius:12px}
+
+.compactSummary{grid-template-columns:repeat(2,1fr);margin:14px 0}
+.learningTable{display:grid;gap:7px}.learningRow{display:grid;grid-template-columns:1fr 90px 90px;gap:12px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:10px;background:#090d13}.learningRow strong,.learningRow small{display:block}.learningRow small{margin-top:3px;color:var(--muted);font-size:10px}.learningRow>span{text-align:right;font-variant-numeric:tabular-nums;color:#9eb9ff;font-size:12px}
