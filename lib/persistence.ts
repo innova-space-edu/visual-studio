@@ -215,7 +215,7 @@ export async function enqueueLearningEvent(input:LearningEventInput){
   const tx=db.transaction(OUTBOX,"readwrite");
   await transactionPromise(tx,tx.objectStore(OUTBOX).put(event));
   db.close();
-  void maybeSyncLearningOutbox();
+  void syncLearningOutbox(false);
   return event;
 }
 
