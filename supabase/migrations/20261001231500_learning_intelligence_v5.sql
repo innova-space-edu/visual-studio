@@ -85,7 +85,7 @@ alter table public.learning_candidates
   add column if not exists review_note text;
 
 create unique index if not exists learning_candidates_key_uidx
-  on public.learning_candidates(candidate_key) where candidate_key is not null;
+  on public.learning_candidates(candidate_key);
 
 alter table public.learning_observations enable row level security;
 alter table public.learning_experiments enable row level security;
