@@ -144,21 +144,24 @@ export default function StudioClient(){
     setStatus("Feedback local exportado");
   }
 
-  async function exportPng(){
+  async function exportBinary(format:"png"|"webp"|"avif"|"pdf"){
     if(!scene)return;
-    setStatus("Rasterizando con resvg");
+    const labels:{[K in typeof format]:string}={png:"PNG",webp:"WebP",avif:"AVIF",pdf:"PDF"};
+    const mime:{[K in typeof format]:string}={png:"image/png",webp:"image/webp",avif:"image/avif",pdf:"application/pdf"};
+    setStatus("Exportando "+labels[format]+" localmente");
     const res=await fetch("/api/render",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({scene:scene,format:"png",math:true,pixelRatio:2})
+      body:JSON.stringify({scene:scene,format,math:true,pixelRatio:2,quality:90})
     });
     if(!res.ok){
-      setError("No fue posible rasterizar PNG.");
+      const payload=await res.json().catch(()=>null);
+      setError(payload?.error||("No fue posible exportar "+labels[format]+"."));
       setStatus("Error");
       return;
     }
-    downloadBlob(await res.blob(),"image/png","visual-engine.png");
-    setStatus("PNG exportado");
+    downloadBlob(await res.blob(),mime[format],"visual-engine."+format);
+    setStatus(labels[format]+" exportado");
   }
 
   function exportSvg(){
@@ -256,7 +259,10 @@ export default function StudioClient(){
           <div><span className="eyebrow">RENDER</span><h2>Canvas 1200 × 800</h2></div>
           <div className="actions">
             <button onClick={exportSvg} disabled={!svg}>SVG</button>
-            <button onClick={exportPng} disabled={!scene}>PNG 2×</button>
+            <button onClick={()=>exportBinary("png")} disabled={!scene}>PNG 2×</button>
+            <button onClick={()=>exportBinary("webp")} disabled={!scene}>WebP</button>
+            <button onClick={()=>exportBinary("avif")} disabled={!scene}>AVIF</button>
+            <button onClick={()=>exportBinary("pdf")} disabled={!scene}>PDF</button>
           </div>
         </div>
 
