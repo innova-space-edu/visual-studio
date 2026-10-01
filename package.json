@@ -9,7 +9,9 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run build",
-    "postinstall": "node scripts/copy-wasm.mjs"
+    "postinstall": "node scripts/copy-wasm.mjs",
+    "verify:production": "node scripts/verify-production.mjs",
+    "check:production": "npm run typecheck && npm run build && npm run verify:production"
   },
   "dependencies": {
     "@innova-space/visual-assets": "github:innova-space-edu/visual-assets#d09e128d2423095b2a333f28175a399a1ea640db",
