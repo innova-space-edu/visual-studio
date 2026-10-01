@@ -18,7 +18,7 @@ const securityHeaders=[
       "img-src 'self' data: blob:",
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      "script-src 'self' 'wasm-unsafe-eval'",
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
       "worker-src 'self' blob:",
       "connect-src 'self'",
       "media-src 'self' blob:",
