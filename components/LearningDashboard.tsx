@@ -75,6 +75,7 @@ export default function LearningDashboard(){
   const skillRows=useMemo(()=>Object.values(skills?.stats||{}).sort((a:any,b:any)=>b.score-a.score) as any[],[skills]);
   const assetRows=useMemo(()=>Object.values(assets?.stats||{}).sort((a:any,b:any)=>b.score-a.score) as any[],[assets]);
   const runs=cloud?.runs||[],observations=cloud?.observations||[],candidates=cloud?.candidates||[],regressions=cloud?.regressions||[],experiments=cloud?.experiments||[],releases=cloud?.releases||[];
+  const dueReleases=releases.filter((release:any)=>release.status==="scheduled"&&release.notify_at&&Date.now()>=new Date(release.notify_at).getTime());
 
   const totalSignals=(engineV2?.events||0)+skillRows.reduce((sum,row)=>sum+Number(row.samples||0),0)+assetRows.reduce((sum,row)=>sum+Number(row.samples||0),0)+observations.length;
 
@@ -116,6 +117,7 @@ export default function LearningDashboard(){
     </div>
 
     {cloudError&&<div className="learningNotice bad">Cloud: {cloudError}</div>}
+    {dueReleases.length>0&&<div className="learningNotice">Actualización disponible: {dueReleases.length} versión(es) programada(s) alcanzaron su aviso D-2. Revísalas en Versiones antes de aprobar.</div>}
     {message&&<div className="learningNotice">{message}</div>}
 
     <div className="learningTabs">
