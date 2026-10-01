@@ -30,6 +30,7 @@ interface Props{
   onCommit:(scene:VisualScene,label:string)=>void;
   onStatus:(status:string)=>void;
   onPickColor?:(color:string)=>void;
+  showGrid?:boolean;
 }
 
 function sorted(nodes:VisualNode[]){
@@ -186,7 +187,7 @@ function makeShape(tool:EditorTool,start:{x:number;y:number},end:{x:number;y:num
 }
 
 export default function KonvaSceneCanvas(props:Props){
-  const {scene,selectedIds,tool,zoom,paint,onSelectionChange,onCommit,onStatus,onPickColor}=props;
+  const {scene,selectedIds,tool,zoom,paint,onSelectionChange,onCommit,onStatus,onPickColor,showGrid=false}=props;
   const stageRef=useRef<Konva.Stage|null>(null);
   const transformerRef=useRef<Konva.Transformer|null>(null);
   const [draft,setDraft]=useState<VisualNode|null>(null);
@@ -277,6 +278,10 @@ export default function KonvaSceneCanvas(props:Props){
   >
     <Layer>
       <Rect x={0} y={0} width={scene.width} height={scene.height} fill={scene.background||"#ffffff"} listening={false}/>
+      {showGrid&&<>
+        {Array.from({length:Math.floor(scene.width/40)+1},(_,i)=><Line key={"gv"+i} points={[i*40,0,i*40,scene.height]} stroke="#e2e8f0" strokeWidth={1} opacity={.55} listening={false}/>)}
+        {Array.from({length:Math.floor(scene.height/40)+1},(_,i)=><Line key={"gh"+i} points={[0,i*40,scene.width,i*40]} stroke="#e2e8f0" strokeWidth={1} opacity={.55} listening={false}/>)}
+      </>}
       {allNodes.map(node=><SceneNode
         key={node.id} node={node}
         selected={selectedIds.includes(node.id)}
