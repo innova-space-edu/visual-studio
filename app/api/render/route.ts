@@ -51,11 +51,11 @@ export async function POST(req:NextRequest){
       try{scene=await hydrateMath(scene);}catch{}
     }
     const quality=analyzeQuality(scene);
-    if(body.format==="png"){
-      const rendered=await nodeVisualEngine.renderPng(scene,{pixelRatio:Math.min(4,Math.max(1,Number(body.pixelRatio)||1))});
-      if(rendered.format!=="png"){
-        return Response.json({error:"PNG renderer unavailable",diagnostics:rendered.diagnostics},{status:503,headers:cors(origin)});
-      }
+    const format=String(body.format||"svg").toLowerCase();
+    const pixelRatio=Math.min(4,Math.max(1,Number(body.pixelRatio)||1));
+
+    if(format==="png"){
+      const rendered=await nodeVisualEngine.renderPng(scene,{pixelRatio});
       const bytes=rendered.data as Uint8Array;
       const copy=new Uint8Array(bytes.byteLength);
       copy.set(bytes);
@@ -64,6 +64,44 @@ export async function POST(req:NextRequest){
         headers:Object.assign({"Content-Type":"image/png","X-Visual-Quality":String(quality.score)},cors(origin))
       });
     }
+
+    if(format==="webp"){
+      const rendered=await nodeVisualEngine.renderWebp(scene,{quality:Math.min(100,Math.max(1,Number(body.quality)||90))});
+      const bytes=rendered.data as Uint8Array;
+      const copy=new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      return new Response(copy.buffer,{
+        status:200,
+        headers:Object.assign({"Content-Type":"image/webp","X-Visual-Quality":String(quality.score)},cors(origin))
+      });
+    }
+
+    if(format==="avif"){
+      const rendered=await nodeVisualEngine.renderAvif(scene,{quality:Math.min(100,Math.max(1,Number(body.quality)||80))});
+      const bytes=rendered.data as Uint8Array;
+      const copy=new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      return new Response(copy.buffer,{
+        status:200,
+        headers:Object.assign({"Content-Type":"image/avif","X-Visual-Quality":String(quality.score)},cors(origin))
+      });
+    }
+
+    if(format==="pdf"){
+      const rendered=await nodeVisualEngine.renderPdf(scene,{pixelRatio});
+      const bytes=rendered.data as Uint8Array;
+      const copy=new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      return new Response(copy.buffer,{
+        status:200,
+        headers:Object.assign({"Content-Type":"application/pdf","X-Visual-Quality":String(quality.score)},cors(origin))
+      });
+    }
+
+    if(format!=="svg"){
+      return Response.json({error:"Unsupported format"},{status:400,headers:cors(origin)});
+    }
+
     const rendered=nodeVisualEngine.renderSvg(scene,{pretty:false});
     return new Response(rendered.data as string,{
       status:200,
