@@ -1,0 +1,32 @@
+{
+  "name": "@innova-space/visual-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone laboratory and editor for Innova Visual Engine.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run build",
+    "postinstall": "node scripts/copy-wasm.mjs"
+  },
+  "dependencies": {
+    "@innova-space/visual-assets": "github:innova-space-edu/visual-assets#7b6b895f0cebd8847044529bfe7948c1a804ddcd",
+    "@innova-space/visual-design": "github:innova-space-edu/visual-design-skills#5d50863ea6ec8881989fa0059ca0f3356978dd02",
+    "@innova-space/visual-engine": "github:innova-space-edu/visual-engine#ad40ea5e27c55917e3acc01f13d1173532ef11ee",
+    "canvaskit-wasm": "^0.40.0",
+    "next": "^16.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
