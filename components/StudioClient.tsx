@@ -3,9 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { visual } from "@innova-space/visual-design";
-import { compilePlanToScene, ENGINE_CAPABILITIES } from "@innova-space/visual-design/engine";
+import { ENGINE_CAPABILITIES } from "@innova-space/visual-design/engine";
 import {
-  analyzeQuality,
   candidateKey,
   parseVisualDSL,
   renderSvg,
@@ -16,6 +15,8 @@ import {
 import { loadCanvasKit, loadThreeWebGPU } from "@innova-space/visual-engine/browser";
 import { searchAssets } from "@innova-space/visual-assets";
 import { exportEvaluations, loadLatestScene, loadLearningSnapshot, recordEvaluation, saveLearningSnapshot, saveLocalScene } from "@/lib/persistence";
+import { compileStudioPrompt } from "@/lib/studio-compiler";
+import { analyzeStudioQuality } from "@/lib/studio-quality";
 
 type Mode="prompt"|"dsl"|"scene";
 
@@ -50,7 +51,9 @@ export default function StudioClient(){
   const [gpu,setGpu]=useState("No probado");
   const [error,setError]=useState("");
 
-  const quality=useMemo(function(){return scene?analyzeQuality(scene):null;},[scene]);
+  const quality=useMemo(function(){
+    return scene?analyzeStudioQuality(scene,mode==="prompt"?prompt:""):null;
+  },[scene,mode,prompt]);
   const assets=useMemo(function(){return searchAssets(scene?"math":"").slice(0,4);},[scene]);
 
   async function refineSvg(next:VisualScene){
@@ -58,10 +61,16 @@ export default function StudioClient(){
       const res=await fetch("/api/render",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({scene:next,format:"svg",math:true})
+        body:JSON.stringify({scene:next,format:"svg",math:true,strictMath:false})
       });
-      if(res.ok)setSvg(await res.text());
-    }catch{}
+      if(!res.ok)throw new Error("Render API "+res.status);
+      const mathStatus=res.headers.get("X-Visual-Math")||"unknown";
+      setSvg(await res.text());
+      return mathStatus;
+    }catch(e){
+      setError("Refinado matemático: "+String(e));
+      return "error";
+    }
   }
 
   async function compile(){
@@ -77,14 +86,14 @@ export default function StudioClient(){
         const plan=visual.plan(prompt,{
           brief:{output:{format:"svg",width:1200,height:800,editable:true}}
         });
-        next=compilePlanToScene(plan) as VisualScene;
+        next=compileStudioPrompt(prompt,plan);
       }
       setScene(next);
       setSceneText(JSON.stringify(next,null,2));
       setSvg(renderSvg(next));
       setStatus("Scene Graph generado · MathJax refinando");
-      await refineSvg(next);
-      setStatus("Render local listo");
+      const mathStatus=await refineSvg(next);
+      setStatus(mathStatus==="ok"?"Render local listo · MathJax activo":mathStatus==="fallback"?"Render listo · MathJax en fallback":"Render local listo");
     }catch(e){
       setError(String(e));
       setStatus("Error");
@@ -103,8 +112,8 @@ export default function StudioClient(){
     setScene(saved);
     setSceneText(JSON.stringify(saved,null,2));
     setSvg(renderSvg(saved));
-    await refineSvg(saved);
-    setStatus("Escena local cargada");
+    const mathStatus=await refineSvg(saved);
+    setStatus(mathStatus==="ok"?"Escena cargada · MathJax activo":"Escena local cargada");
   }
 
   async function evaluate(rating:"good"|"needs-work"){
@@ -284,12 +293,20 @@ export default function StudioClient(){
       <aside className="inspector">
         <h2>Inspector</h2>
         <div className="metricGrid">
-          <div><span>Calidad</span><strong>{quality?quality.score:"—"}</strong></div>
+          <div><span>Calidad total</span><strong>{quality?quality.score:"—"}</strong></div>
+          <div><span>Semántica</span><strong>{quality?quality.semanticScore:"—"}</strong></div>
+          <div><span>Visual</span><strong>{quality?quality.visualScore:"—"}</strong></div>
           <div><span>Nodos</span><strong>{quality?quality.metrics.nodeCount:"—"}</strong></div>
           <div><span>Fuera</span><strong>{quality?quality.metrics.outOfBounds:"—"}</strong></div>
-          <div><span>Duplicados</span><strong>{quality?quality.metrics.duplicateIds:"—"}</strong></div>
+          <div><span>Faltantes</span><strong>{quality?quality.metrics.semanticMissing:"—"}</strong></div>
         </div>
 
+        {quality&&quality.metrics.semanticMissing>0&&<>
+          <h3>Faltantes detectados</h3>
+          <div className="qualityIssues">
+            {quality.diagnostics.filter(d=>d.code==="semantic.missing").map((d,i)=><div key={i}>{d.message}</div>)}
+          </div>
+        </>}
         <h3>Contrato</h3>
         <code>{ENGINE_CAPABILITIES.contract}</code>
         <p className="muted">Planificación externa: 0 llamadas. Render estructurado local y editable.</p>
