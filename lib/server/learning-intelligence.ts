@@ -19,7 +19,7 @@ function candidateVersion(){
   return "learn-"+new Date().toISOString().slice(0,16).replace(/[-:T]/g,"");
 }
 
-function toObservation(row:any):ParameterObservation|null{
+function toObservation(row:any,run?:any):ParameterObservation|null{
   const before=Number(row.before_value),after=Number(row.after_value);
   if(!Number.isFinite(before)||!Number.isFinite(after)||!row.skill||!row.feature)return null;
   return {
@@ -27,10 +27,10 @@ function toObservation(row:any):ParameterObservation|null{
     nodeType:String(row.node_type||"*"),
     path:String(row.feature),
     before,after,
-    qualityBefore:Number.isFinite(Number(row.quality_before))?Number(row.quality_before):undefined,
-    qualityAfter:Number.isFinite(Number(row.quality_after))?Number(row.quality_after):undefined,
-    accepted:row.accepted==null?undefined:!!row.accepted,
-    exported:row.exported==null?undefined:!!row.exported,
+    qualityBefore:Number.isFinite(Number(row.quality_before))?Number(row.quality_before):(Number.isFinite(Number(run?.quality_before))?Number(run.quality_before):undefined),
+    qualityAfter:Number.isFinite(Number(row.quality_after))?Number(row.quality_after):(Number.isFinite(Number(run?.quality_after))?Number(run.quality_after):undefined),
+    accepted:row.accepted==null?(run?.accepted==null?undefined:!!run.accepted):!!row.accepted,
+    exported:row.exported===true||run?.exported===true,
     timestamp:row.occurred_at?new Date(row.occurred_at).getTime():undefined
   };
 }
@@ -141,8 +141,9 @@ export async function runCandidateRegression(candidateOrId:any){
 }
 
 export async function scanSkillCandidate(skill:string,options:{minSamples?:number;minConfidence?:number;currentVersion?:string}={}){
-  const rows=await listObservations({skill,limit:10000});
-  const observations=rows.map(toObservation).filter((row):row is ParameterObservation=>!!row);
+  const [rows,runs]=await Promise.all([listObservations({skill,limit:10000}),listRuns(5000)]);
+  const runMap=new Map(runs.map((run:any)=>[String(run.run_id),run]));
+  const observations=rows.map((row:any)=>toObservation(row,runMap.get(String(row.run_id||"")))).filter((row):row is ParameterObservation=>!!row);
   const candidate=createOptimizationCandidate({
     skill,observations,
     currentVersion:options.currentVersion,
