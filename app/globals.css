@@ -87,3 +87,11 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 
 .compactSummary{grid-template-columns:repeat(2,1fr);margin:14px 0}
 .learningTable{display:grid;gap:7px}.learningRow{display:grid;grid-template-columns:1fr 90px 90px;gap:12px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:10px;background:#090d13}.learningRow strong,.learningRow small{display:block}.learningRow small{margin-top:3px;color:var(--muted);font-size:10px}.learningRow>span{text-align:right;font-variant-numeric:tabular-nums;color:#9eb9ff;font-size:12px}
+
+.runtimeLab{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+.runtimeStage{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:#161c26;display:grid;place-items:center;padding:18px;min-height:420px}
+.runtimeStage svg{width:min(100%,1000px);height:auto;background:white;box-shadow:0 18px 60px #0008}
+.runtimeStats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.runtimeStats div{border:1px solid var(--line);border-radius:10px;padding:12px;background:#090d13}
+.runtimeStats span,.runtimeStats strong{display:block}.runtimeStats span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.runtimeStats strong{font-size:12px;margin-top:5px;word-break:break-word}
+@media(max-width:760px){.runtimeStats{grid-template-columns:1fr}}
