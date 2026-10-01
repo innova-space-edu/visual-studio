@@ -8,6 +8,7 @@ import {
   updateCandidate,updateExperiment,updateRelease
 } from "@/lib/server/learning-db";
 import {runCandidateRegression,scanAllCandidates,scanSkillCandidate} from "@/lib/server/learning-intelligence";
+import {archiveLearningJson} from "@/lib/server/learning-archive";
 
 export const runtime="nodejs";
 export const maxDuration=60;
@@ -142,9 +143,11 @@ export async function POST(request:NextRequest){
       if(!Number.isFinite(scheduled.getTime()))throw new Error("Invalid scheduledFor");
       const notifyAt=new Date(scheduled.getTime()-2*24*60*60*1000);
       const version=String(body.version||("visual-learning-"+new Date().toISOString().slice(0,10).replace(/-/g,"")+"-"+Date.now().toString(36)));
+      const manifest={candidateKeys:candidates.map(c=>c.candidate_key),createdBy:"visual-studio",scheduledFor:scheduled.toISOString(),notifyAt:notifyAt.toISOString()};
+      const archived=await archiveLearningJson({kind:"release",folder:"releases",prefix:"release",payload:{version,candidateIds:ids,manifest},metadata:{version}});
       const row=await insertRelease({
         version,status:"scheduled",candidate_ids:ids,scheduled_for:scheduled.toISOString(),notify_at:notifyAt.toISOString(),
-        manifest:{candidateKeys:candidates.map(c=>c.candidate_key),createdBy:"visual-studio"}
+        manifest,drive_file_id:archived.fileId
       });
       return NextResponse.json({ok:true,result:row});
     }
