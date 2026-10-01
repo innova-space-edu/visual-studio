@@ -124,7 +124,7 @@ function SceneNode({
 }:{
   node:VisualNode;selected:boolean;selectable:boolean;
   onSelect:(node:VisualNode,e:any)=>void;
-  onTransformCommit:(node:VisualNode,group:Konva.Group,label:string)=>void;
+  onTransformCommit:(node:VisualNode,group:Konva.Node,label:string)=>void;
 }){
   if(node.visible===false)return null;
   const t=nodeTransform(node);
@@ -227,7 +227,7 @@ export default function KonvaSceneCanvas(props:Props){
     e.cancelBubble=true;
   }
 
-  function commitTransform(node:VisualNode,group:Konva.Group,label:string){
+  function commitTransform(node:VisualNode,group:Konva.Node,label:string){
     const next=updateNode(scene,node.id,{
       transform:{
         ...(node.transform||{}),
