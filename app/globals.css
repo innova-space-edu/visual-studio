@@ -198,3 +198,17 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 .storageButtons{display:grid;grid-template-columns:1fr 1fr;gap:8px}.storageButtons button{border:1px solid var(--line);background:#141b26;color:var(--text);border-radius:8px;padding:9px}
 .storageHint{font-size:11px;line-height:1.5;color:#d4b36c;border:1px solid #56451e;background:#1b160a;border-radius:9px;padding:9px}.storageHint code{color:#ffe09b}
 @media(max-width:900px){.storageGrid{grid-template-columns:1fr}.storageHeader{display:grid}.storageHeaderActions{justify-content:flex-start}}
+
+/* Learning Intelligence V5 */
+.learningNotice{border:1px solid #365c9b;background:#101b31;color:#c8d8ff;border-radius:10px;padding:10px 12px;font-size:12px}
+.learningNotice.bad{border-color:#6b2730;background:#241016;color:#ffb2b9}
+.learningFlow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.learningFlow span{border:1px solid var(--line);background:#0a0e14;border-radius:999px;padding:7px 9px;font-size:9px;color:#a9c1ff}.learningFlow b{color:#536780}
+.learningWide{grid-template-columns:minmax(260px,1fr) 150px 120px 120px}
+.learningControl{display:grid;grid-template-columns:minmax(280px,1.4fr) minmax(180px,.8fr) minmax(150px,.6fr) minmax(120px,.5fr) auto;gap:10px;align-items:end;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:14px}
+.learningControl h3{margin:0 0 4px}.learningControl p{margin:0}.learningControl input{width:100%;border:1px solid var(--line);background:#080b10;color:var(--text);border-radius:8px;padding:9px 10px}
+.learningCards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.learningCard{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px;display:grid;gap:8px}.learningCardHead{display:flex;align-items:center;justify-content:space-between;gap:10px}.learningCard p{margin:0;color:#cdd7e8;font-size:12px}.learningCard small{display:block;color:var(--muted);font-size:10px;line-height:1.4}
+.learningCardActions{display:flex;flex-wrap:wrap;gap:6px;margin-top:3px}.learningCardActions button{font-size:10px;padding:7px 9px}
+.learningGood,.learningBad,.learningNeutral{font-size:9px;text-transform:uppercase;letter-spacing:.08em;border-radius:999px;padding:4px 7px;border:1px solid var(--line)}.learningGood{color:#78e0ac;border-color:#2b6e50;background:#0d2118}.learningBad{color:#ff9ba4;border-color:#6b2730;background:#241016}.learningNeutral{color:#e7c477;border-color:#6a5324;background:#221a0d}
+@media(max-width:1100px){.learningControl{grid-template-columns:1fr 1fr}.learningWide{grid-template-columns:1fr 120px}.learningWide>span:nth-last-child(-n+2){display:none}}
+@media(max-width:760px){.learningCards{grid-template-columns:1fr}.learningControl{grid-template-columns:1fr}}
