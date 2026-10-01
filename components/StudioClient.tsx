@@ -49,6 +49,7 @@ export default function StudioClient(){
   const [status,setStatus]=useState("Listo");
   const [skia,setSkia]=useState("No cargado");
   const [gpu,setGpu]=useState("No probado");
+  const [mathEngine,setMathEngine]=useState("Sin ejecutar");
   const [error,setError]=useState("");
 
   const quality=useMemo(function(){
@@ -65,11 +66,14 @@ export default function StudioClient(){
       });
       if(!res.ok)throw new Error("Render API "+res.status);
       const mathStatus=res.headers.get("X-Visual-Math")||"unknown";
+      const engine=res.headers.get("X-Visual-Math-Engine")||"unknown";
+      const count=res.headers.get("X-Visual-Math-Count")||"0";
+      setMathEngine(engine+" · "+count+" expresión(es)");
       setSvg(await res.text());
-      return mathStatus;
+      return {status:mathStatus,engine};
     }catch(e){
       setError("Refinado matemático: "+String(e));
-      return "error";
+      return {status:"error",engine:"error"};
     }
   }
 
@@ -93,8 +97,14 @@ export default function StudioClient(){
       setSvg(renderSvg(next));
       await saveLocalScene(next);
       setStatus("Scene Graph generado · MathJax refinando");
-      const mathStatus=await refineSvg(next);
-      setStatus(mathStatus==="ok"?"Render local listo · MathJax activo · editable":mathStatus==="fallback"?"Render listo · MathJax en fallback · editable":"Render local listo · editable");
+      const math=await refineSvg(next);
+      setStatus(
+        math.status==="ok"
+          ?"Render listo · MathJax SVG activo · editable"
+          :math.status==="fallback"
+            ?"Render listo · fallback matemático activo · editable"
+            :"Render local listo · editable"
+      );
     }catch(e){
       setError(String(e));
       setStatus("Error");
@@ -119,8 +129,8 @@ export default function StudioClient(){
     setScene(saved);
     setSceneText(JSON.stringify(saved,null,2));
     setSvg(renderSvg(saved));
-    const mathStatus=await refineSvg(saved);
-    setStatus(mathStatus==="ok"?"Escena cargada · MathJax activo":"Escena local cargada");
+    const math=await refineSvg(saved);
+    setStatus(math.status==="ok"?"Escena cargada · MathJax SVG activo":"Escena local cargada");
   }
 
   async function evaluate(rating:"good"|"needs-work"){
@@ -315,6 +325,10 @@ export default function StudioClient(){
             {quality.diagnostics.filter(d=>d.code==="semantic.missing").map((d,i)=><div key={i}>{d.message}</div>)}
           </div>
         </>}
+        <h3>Motor matemático</h3>
+        <code>{mathEngine}</code>
+        <p className="muted">MathJax 4 renderiza TeX/LaTeX a SVG. KaTeX valida y actúa como fallback local si el motor SVG falla.</p>
+
         <h3>Contrato</h3>
         <code>{ENGINE_CAPABILITIES.contract}</code>
         <p className="muted">Planificación externa: 0 llamadas. Render estructurado local y editable.</p>

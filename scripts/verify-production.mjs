@@ -42,10 +42,31 @@ if(!deployment||deployment.main!==true||deployment["*"]!==false){
   process.exit(1);
 }
 
-const { latexToSvg }=await import("@innova-space/visual-engine/node");
-const mathSvg=await latexToSvg("x^2+y^2=r^2");
+const mathjaxModule=await import("mathjax");
+const MathJaxFactory=mathjaxModule.default||mathjaxModule;
+const MathJax=await MathJaxFactory.init({
+  loader:{load:["input/tex","output/svg","[tex]/mhchem"]},
+  tex:{packages:{"[+]":["mhchem"]}},
+  svg:{fontCache:"none"}
+});
+const mathNode=await MathJax.tex2svgPromise("\\frac{a}{b}+\\sqrt{x^2}",{display:true});
+const mathSvg=MathJax.startup.adaptor.serializeXML(mathNode);
 if(!mathSvg.includes("<svg")){
-  console.error("[visual-studio] MathJax SVG hydration is unavailable");
+  console.error("[visual-studio] MathJax 4 SVG renderer is unavailable");
+  process.exit(1);
+}
+const chemNode=await MathJax.tex2svgPromise("\\ce{2H2 + O2 -> 2H2O}",{display:true});
+const chemSvg=MathJax.startup.adaptor.serializeXML(chemNode);
+if(!chemSvg.includes("<svg")){
+  console.error("[visual-studio] MathJax mhchem SVG renderer is unavailable");
+  process.exit(1);
+}
+const katexModule=await import("katex");
+await import("katex/contrib/mhchem");
+const katex=katexModule.default||katexModule;
+const katexHtml=katex.renderToString("\\frac{a}{b}",{displayMode:true,throwOnError:true});
+if(!katexHtml.includes("katex")){
+  console.error("[visual-studio] KaTeX fallback validator is unavailable");
   process.exit(1);
 }
 

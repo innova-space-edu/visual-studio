@@ -31,7 +31,7 @@ const securityHeaders=[
 const nextConfig={
   reactStrictMode:true,
   poweredByHeader:false,
-  serverExternalPackages:["@resvg/resvg-js","sharp","pdf-lib","mathjax"],
+  serverExternalPackages:["@resvg/resvg-js","sharp","pdf-lib","mathjax","katex"],
   async headers(){
     return [
       {
