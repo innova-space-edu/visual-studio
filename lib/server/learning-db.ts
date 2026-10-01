@@ -87,6 +87,26 @@ export async function insertObservations(rows:Record<string,unknown>[]){
   return data||[];
 }
 
+export async function findLearningObject(sha256:string){
+  const {data}=await rest("learning_objects?sha256=eq."+encodeURIComponent(sha256)+"&select=*&limit=1");
+  return Array.isArray(data)&&data[0]?data[0]:null;
+}
+
+export async function insertLearningObject(row:Record<string,unknown>){
+  const {data}=await rest("learning_objects?on_conflict=sha256",{
+    method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify(row)
+  });
+  return Array.isArray(data)?data[0]:data;
+}
+
+export async function touchLearningObject(sha256:string,referenceCount:number){
+  const {data}=await rest("learning_objects?sha256=eq."+encodeURIComponent(sha256),{
+    method:"PATCH",headers:{Prefer:"return=representation"},
+    body:JSON.stringify({reference_count:referenceCount,last_referenced_at:new Date().toISOString()})
+  });
+  return Array.isArray(data)?data[0]:data;
+}
+
 export async function listRuns(limit=100){
   const {data}=await rest("learning_runs?select=*&order=created_at.desc&limit="+Math.max(1,Math.min(1000,limit)));
   return Array.isArray(data)?data:[];
