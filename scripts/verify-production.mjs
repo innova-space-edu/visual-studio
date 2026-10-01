@@ -25,6 +25,16 @@ for(const name of ["@innova-space/visual-engine","@innova-space/visual-assets","
   }
 }
 
+const nextConfig=fs.readFileSync(path.join(root,"next.config.mjs"),"utf8");
+if(!nextConfig.includes("script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'")){
+  console.error("[visual-studio] CSP must allow Next.js inline hydration bootstrap scripts");
+  process.exit(1);
+}
+if(!nextConfig.includes("worker-src 'self' blob:")){
+  console.error("[visual-studio] CSP must allow local module workers");
+  process.exit(1);
+}
+
 const vercel=JSON.parse(fs.readFileSync(path.join(root,"vercel.json"),"utf8"));
 const deployment=vercel?.git?.deploymentEnabled;
 if(!deployment||deployment.main!==true||deployment["*"]!==false){
