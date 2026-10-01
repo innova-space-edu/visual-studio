@@ -42,4 +42,11 @@ if(!deployment||deployment.main!==true||deployment["*"]!==false){
   process.exit(1);
 }
 
+const { latexToSvg }=await import("@innova-space/visual-engine/node");
+const mathSvg=await latexToSvg("x^2+y^2=r^2");
+if(!mathSvg.includes("<svg")){
+  console.error("[visual-studio] MathJax SVG hydration is unavailable");
+  process.exit(1);
+}
+
 console.log("[visual-studio] production verification passed");

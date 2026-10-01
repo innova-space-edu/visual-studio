@@ -101,3 +101,41 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 .statusRows span{color:var(--muted);font-size:11px}.statusRows strong{font-size:12px;text-align:right}
 .statusGroup{margin-top:8px}.statusGroup strong{font-size:20px}
 .smallMetric{font-size:16px!important;word-break:break-all}
+
+/* Visual quality/editor V3 */
+.qualityIssues{display:grid;gap:6px}
+.qualityIssues div{border:1px solid #6b2730;background:#241016;color:#ffb2b9;border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.35}
+.interactiveStage{touch-action:none;user-select:none;cursor:default;align-content:center}
+.interactiveStage svg [id]:not(#__background):not(#__selection){cursor:grab}
+.interactiveStage svg [id]:not(#__background):not(#__selection):active{cursor:grabbing}
+.editorCanvasScale{display:grid;place-items:center;min-width:420px}
+.editorCanvasScale svg{width:100%;max-width:none;height:auto}
+.zoomLabel{min-width:46px;text-align:center;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.paintGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.paintGrid label{margin:0;text-transform:none;letter-spacing:0}
+.paintGrid span{display:block;font-size:10px;color:var(--muted);margin-bottom:5px}
+.paintGrid input{width:100%;height:34px;border:1px solid var(--line);background:#080b10;color:var(--text);border-radius:8px;padding:4px}
+.threeStatus{font-size:12px;color:#9eb9ff;margin:12px 0 4px}
+.topActions{min-width:0;overflow-x:auto;scrollbar-width:thin}
+.topActions>*{flex:0 0 auto}
+@media(max-width:1250px){
+  .navLink{padding:7px 9px;font-size:11px}
+  .topActions{gap:7px;max-width:72vw}
+}
+
+/* Editable preview V3 */
+.editorPrimary{background:linear-gradient(135deg,#315fc4,#6246d8);border-color:transparent;font-weight:700}
+.alignmentButtons{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.alignmentButtons button{font-size:10px;padding:7px}
+.alignmentButtons .active{background:#20345e;border-color:#416bc0}
+.fullInput{width:100%;border:1px solid var(--line);background:#080b10;color:var(--text);border-radius:8px;padding:8px}
+.canvasProperties{border:1px solid var(--line);background:#090d13;border-radius:10px;padding:10px;margin-bottom:12px}
+.canvasProperties label{margin:0 0 7px}
+.canvasProperties input[type="color"]{width:100%;height:34px;border:1px solid var(--line);background:#080b10;border-radius:8px;padding:4px}
+.interactiveStage svg [id^="__resize__"]{cursor:nwse-resize!important}
+.actions{flex-wrap:wrap;justify-content:flex-end}
+.editorToolbar{flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:1250px){
+  .editorTopbar{height:auto;min-height:76px;padding-top:10px;padding-bottom:10px}
+  .editorGrid{height:calc(100vh - 96px)}
+}
