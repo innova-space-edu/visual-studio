@@ -151,7 +151,9 @@ export async function uploadDriveFile(input:{
   };
   const form=new FormData();
   form.append("metadata",new Blob([JSON.stringify(metadata)],{type:"application/json"}));
-  form.append("file",new Blob([input.bytes],{type:input.mimeType}),input.name);
+  const copy=new Uint8Array(input.bytes.byteLength);
+  copy.set(input.bytes);
+  form.append("file",new Blob([copy.buffer],{type:input.mimeType}),input.name);
   const res=await fetch(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,size,createdTime,webViewLink",
     {
