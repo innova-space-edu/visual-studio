@@ -182,3 +182,19 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 .learningOverview{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.learningOverview article{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px}.learningOverview span,.learningOverview strong,.learningOverview small{display:block}.learningOverview span{font-size:9px;color:var(--muted);text-transform:uppercase}.learningOverview strong{font-size:26px;margin:5px 0}.learningOverview small{font-size:10px;color:#8291aa;line-height:1.35}
 .learningColumns{display:grid;grid-template-columns:1.4fr 1fr;gap:12px}.learningRow.four{grid-template-columns:1fr 90px 110px 100px}
 @media(max-width:900px){.learningOverview{grid-template-columns:1fr 1fr}.learningColumns{grid-template-columns:1fr}.learningRow.four{grid-template-columns:1fr 70px 90px 80px}}
+
+/* Learning Cloud Storage */
+.storagePage{min-height:100vh;max-width:1500px;margin:0 auto;padding:28px;background:var(--bg);color:var(--text)}
+.storageHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+.storageHeader h1{margin:5px 0 8px;font-size:32px}.storageHeader p{margin:0;color:var(--muted);max-width:820px;line-height:1.5}
+.storageHeaderActions{display:flex;gap:8px;flex-wrap:wrap}.storageNotice{margin:16px 0;border:1px solid #365c9b;background:#101b31;color:#bcd0ff;border-radius:10px;padding:10px 12px;font-size:12px}
+.storageGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+.storageCard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.storageCardHead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.storageCardHead h2{margin:3px 0 0;font-size:19px}
+.storageOk,.storageWarn{font-size:9px;text-transform:uppercase;letter-spacing:.08em;border:1px solid var(--line);border-radius:999px;padding:5px 8px;white-space:nowrap}
+.storageOk{color:#74e5ad;border-color:#236c4b;background:#0c2018}.storageWarn{color:#f2c879;border-color:#71551f;background:#241b0b}
+.storageMetrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}.storageMetrics div{background:#090d13;border:1px solid var(--line);border-radius:10px;padding:11px}.storageMetrics span,.storageMetrics strong{display:block}.storageMetrics span{font-size:9px;color:var(--muted);text-transform:uppercase}.storageMetrics strong{font-size:24px;margin-top:4px}
+.storageRows{display:grid;gap:7px;margin:14px 0}.storageRows div{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;border-bottom:1px solid #1e2530;padding:7px 0}.storageRows span{font-size:10px;color:var(--muted)}.storageRows strong{font-size:11px;text-align:right;word-break:break-word}
+.storageButtons{display:grid;grid-template-columns:1fr 1fr;gap:8px}.storageButtons button{border:1px solid var(--line);background:#141b26;color:var(--text);border-radius:8px;padding:9px}
+.storageHint{font-size:11px;line-height:1.5;color:#d4b36c;border:1px solid #56451e;background:#1b160a;border-radius:9px;padding:9px}.storageHint code{color:#ffe09b}
+@media(max-width:900px){.storageGrid{grid-template-columns:1fr}.storageHeader{display:grid}.storageHeaderActions{justify-content:flex-start}}

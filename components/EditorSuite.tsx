@@ -18,6 +18,7 @@ const AssetRuntime=VisualAssets as typeof VisualAssets & {
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import ImageCropper from "@/components/editor/ImageCropper";
 import {
+  enqueueLearningEvent,installLearningAutoSync,
   listSceneVersions,loadLatestScene,loadLatestVisualDocument,loadLearningSnapshot,
   recordSceneVersion,saveLearningSnapshot,saveLocalScene,saveVisualDocument
 } from "@/lib/persistence";
@@ -45,6 +46,9 @@ function htmlFromText(value:string){
 function firstSkill(scene:VisualScene){
   const raw=scene.metadata?.selected_skills;
   return Array.isArray(raw)&&raw[0]?String(raw[0]):String(scene.metadata?.visual_type||"editor.generic");
+}
+function runIdFor(scene:VisualScene){
+  return String(scene.metadata?.learningRunId||scene.id||"editor-session");
 }
 function nodeLabel(node:VisualNode){
   return String((node.metadata?.name as string)||node.id);
@@ -134,10 +138,17 @@ export default function EditorSuite(){
       if(learning?.version==="2.0")learningRef.current.restore(learning);
       if(assetLearning?.version==="1.0")try{AssetRuntime.importAssetLearning(assetLearning);}catch{}
       setStatus("Editor V4 listo · aprendizaje activo");
+      const first=next.pages[0]||DEFAULT_SCENE;
+      void enqueueLearningEvent({
+        type:"editor.session.started",source:"visual-studio",runId:runIdFor(first),sceneId:first.id,
+        skill:firstSkill(first),payload:{documentId:next.id,pageIndex:0,scene:first}
+      });
       void refreshVersions(next.pages[0]?.id);
     }).catch(()=>setStatus("Editor V4 listo"));
     return ()=>{active=false;};
   },[]);
+
+  useEffect(()=>installLearningAutoSync(),[]);
 
   useEffect(()=>{
     const onKey=(event:KeyboardEvent)=>{
@@ -192,20 +203,27 @@ export default function EditorSuite(){
 
   function commit(nextScene:VisualScene,label:string){
     const before=scene;
+    const patches=diffScenes(before,nextScene);
     historyRef.current.commit(nextScene,label);
     const skill=firstSkill(nextScene);
     learningRef.current.learnEdit(before,nextScene,{scope:"skill",key:skill,context:{editor:"v4",label}});
     const nextDoc=updatePage(nextScene);
     setStatus(label+" · aprendizaje registrado");
+    void enqueueLearningEvent({
+      type:"editor.commit",source:"visual-studio",runId:runIdFor(nextScene),sceneId:nextScene.id,skill,
+      payload:{label,pageIndex,patches,documentId:nextDoc.id}
+    });
     void persist(nextDoc,nextScene,label).then(()=>refreshVersions(nextScene.id)).catch(()=>{});
   }
 
   function undo(){
-    const next=historyRef.current.undo();const nextDoc=updatePage(next);setStatus("Deshacer");
+    const before=scene;const next=historyRef.current.undo();const nextDoc=updatePage(next);setStatus("Deshacer");
+    void enqueueLearningEvent({type:"editor.undo",source:"visual-studio",runId:runIdFor(next),sceneId:next.id,skill:firstSkill(next),payload:{patches:diffScenes(before,next),documentId:nextDoc.id}});
     void saveVisualDocument(nextDoc);void saveLocalScene(next);
   }
   function redo(){
-    const next=historyRef.current.redo();const nextDoc=updatePage(next);setStatus("Rehacer");
+    const before=scene;const next=historyRef.current.redo();const nextDoc=updatePage(next);setStatus("Rehacer");
+    void enqueueLearningEvent({type:"editor.redo",source:"visual-studio",runId:runIdFor(next),sceneId:next.id,skill:firstSkill(next),payload:{patches:diffScenes(before,next),documentId:nextDoc.id}});
     void saveVisualDocument(nextDoc);void saveLocalScene(next);
   }
 
@@ -321,14 +339,17 @@ export default function EditorSuite(){
 
   function newDocument(){
     const page=createScene({id:uid("page"),width:1200,height:800,background:"#ffffff",nodes:[]});
+    page.metadata={...(page.metadata||{}),learningRunId:"run-"+crypto.randomUUID()};
     const next=createDocument(uid("document"),[page]);
     setDocument(next);setPageIndex(0);historyRef.current.reset(page);setSelectedIds([]);setStatus("Documento nuevo");
+    void enqueueLearningEvent({type:"document.created",source:"visual-studio",runId:runIdFor(page),sceneId:page.id,skill:firstSkill(page),payload:{document:next}});
     void saveVisualDocument(next);
   }
 
   function exportDocumentJson(){
     const blob=new Blob([JSON.stringify(document,null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob);const a=window.document.createElement("a");a.href=url;a.download=(document.title||document.id||"visual-document")+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
+    void enqueueLearningEvent({type:"export.document-json",source:"visual-studio",runId:runIdFor(scene),sceneId:scene.id,skill:firstSkill(scene),payload:{sizeBytes:blob.size,document}});
     setStatus("Documento JSON exportado");
   }
 
@@ -341,7 +362,9 @@ export default function EditorSuite(){
     }else if(parsed?.version==="1.0"&&Array.isArray(parsed.nodes)){
       nextDoc=createDocument(uid("document"),[parsed as VisualScene]);
     }else throw new Error("Archivo VisualScene/VisualDocument no válido");
-    setDocument(nextDoc);setPageIndex(0);historyRef.current.reset(nextDoc.pages[0]||DEFAULT_SCENE);setSelectedIds([]);
+    const imported=nextDoc.pages[0]||DEFAULT_SCENE;
+    setDocument(nextDoc);setPageIndex(0);historyRef.current.reset(imported);setSelectedIds([]);
+    await enqueueLearningEvent({type:"document.imported",source:"visual-studio",runId:runIdFor(imported),sceneId:imported.id,skill:firstSkill(imported),payload:{document:nextDoc,fileName:file.name,sizeBytes:file.size}});
     await saveVisualDocument(nextDoc);setStatus("Documento importado");
   }
 
@@ -358,6 +381,7 @@ export default function EditorSuite(){
   function addNewPage(){
     const page=createScene({id:uid("page"),width:scene.width,height:scene.height,background:"#ffffff",nodes:[]});
     const next=clone(document);next.pages.push(page);setDocument(next);setPageIndex(next.pages.length-1);historyRef.current.reset(page);
+    void enqueueLearningEvent({type:"document.page-added",source:"visual-studio",runId:runIdFor(scene),sceneId:page.id,skill:firstSkill(scene),payload:{documentId:next.id,pageIndex:next.pages.length-1,page}});
     void saveVisualDocument(next);setSelectedIds([]);setStatus("Página agregada");
   }
   function duplicatePage(){
@@ -367,7 +391,9 @@ export default function EditorSuite(){
   }
   function deletePage(){
     if(document.pages.length<=1)return;
+    const removed=clone(scene);
     const next=clone(document);next.pages.splice(pageIndex,1);const idx=Math.max(0,pageIndex-1);setDocument(next);setPageIndex(idx);historyRef.current.reset(next.pages[idx]!);
+    void enqueueLearningEvent({type:"document.page-deleted",source:"visual-studio",runId:runIdFor(scene),sceneId:scene.id,skill:firstSkill(scene),payload:{documentId:next.id,pageIndex,scene:removed}});
     void saveVisualDocument(next);setSelectedIds([]);setStatus("Página eliminada");
   }
 
