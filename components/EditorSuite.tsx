@@ -91,6 +91,8 @@ export default function EditorSuite(){
   const historyRef=useRef(new SceneHistory(scene,150));
   const learningRef=useRef(new VisualLearningEngineV2());
   const fileInputRef=useRef<HTMLInputElement|null>(null);
+  const jsonInputRef=useRef<HTMLInputElement|null>(null);
+  const clipboardRef=useRef<VisualNode[]>([]);
   const [selectedIds,setSelectedIds]=useState<string[]>([]);
   const [tool,setTool]=useState<EditorTool>("select");
   const [zoom,setZoom]=useState(.72);
@@ -142,6 +144,9 @@ export default function EditorSuite(){
       if(mod&&event.key.toLowerCase()==="z"){event.preventDefault();event.shiftKey?redo():undo();return;}
       if(mod&&event.key.toLowerCase()==="y"){event.preventDefault();redo();return;}
       if(mod&&event.key.toLowerCase()==="a"){event.preventDefault();setSelectedIds(flattenNodes(scene.nodes).filter(n=>!n.locked).map(n=>n.id));return;}
+      if(mod&&event.key.toLowerCase()==="c"){event.preventDefault();copySelection();return;}
+      if(mod&&event.key.toLowerCase()==="x"){event.preventDefault();cutSelection();return;}
+      if(mod&&event.key.toLowerCase()==="v"){event.preventDefault();pasteSelection();return;}
       if(mod&&event.key.toLowerCase()==="d"){event.preventDefault();duplicateSelection();return;}
       if(mod&&event.key.toLowerCase()==="g"){event.preventDefault();groupSelection();return;}
       if(event.key==="Delete"||event.key==="Backspace"){event.preventDefault();deleteSelection();return;}
@@ -200,6 +205,32 @@ export default function EditorSuite(){
     void saveVisualDocument(nextDoc);void saveLocalScene(next);
   }
 
+  function copySelection(){
+    clipboardRef.current=selectedIds.map(id=>findNode(scene,id)).filter((node):node is VisualNode=>!!node).map(node=>clone(node));
+    setStatus("Copiado: "+clipboardRef.current.length+" elemento(s)");
+  }
+  function cutSelection(){
+    copySelection();
+    deleteSelection();
+  }
+  function pasteSelection(){
+    if(!clipboardRef.current.length)return;
+    let next=scene;
+    const ids:string[]=[];
+    for(const original of clipboardRef.current){
+      const node=clone(original) as any;
+      node.id=uid(original.type);
+      node.zIndex=zMax(next)+1;
+      if(typeof node.x==="number"){node.x+=24;node.y+=24;}
+      if(typeof node.cx==="number"){node.cx+=24;node.cy+=24;}
+      if(typeof node.x1==="number"){node.x1+=24;node.x2+=24;node.y1+=24;node.y2+=24;}
+      if(Array.isArray(node.points))node.points=node.points.map(([x,y]:[number,number])=>[x+24,y+24]);
+      next=addNode(next,node);
+      ids.push(node.id);
+    }
+    commit(next,"Pegar selección");setSelectedIds(ids);
+  }
+
   function deleteSelection(){
     if(!selectedIds.length)return;
     let next=scene;
@@ -245,6 +276,12 @@ export default function EditorSuite(){
   function addTriangle(){addPreset(makeTriangle(),"Agregar triángulo");}
   function addStar(){addPreset(makeStar(),"Agregar estrella");}
 
+  function addImageUrl(){
+    const href=window.prompt("URL o data URL de la imagen","https://");
+    if(!href?.trim())return;
+    addPreset({id:uid("image"),type:"image",x:140,y:150,width:420,height:280,href:href.trim(),fit:"contain",metadata:{imageAdjustments:{brightness:0,contrast:0,saturation:0,grayscale:0,blur:0,opacity:1}}},"Agregar imagen por URL");
+  }
+
   async function addImageFile(file:File){
     const dataUrl=await new Promise<string>((resolve,reject)=>{
       const reader=new FileReader();reader.onload=()=>resolve(String(reader.result));reader.onerror=()=>reject(reader.error);reader.readAsDataURL(file);
@@ -276,6 +313,37 @@ export default function EditorSuite(){
   function patchMetadata(patch:Record<string,unknown>,label:string){
     if(!selected)return;
     patchSelected({metadata:{...(selected.metadata||{}),...patch}},label);
+  }
+
+  function newDocument(){
+    const page=createScene({id:uid("page"),width:1200,height:800,background:"#ffffff",nodes:[]});
+    const next=createDocument(uid("document"),[page]);
+    setDocument(next);setPageIndex(0);historyRef.current.reset(page);setSelectedIds([]);setStatus("Documento nuevo");
+    void saveVisualDocument(next);
+  }
+
+  function exportDocumentJson(){
+    const blob=new Blob([JSON.stringify(document,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=(document.title||document.id||"visual-document")+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),500);
+    setStatus("Documento JSON exportado");
+  }
+
+  async function importJsonFile(file:File){
+    const raw=await file.text();
+    const parsed=JSON.parse(raw);
+    let nextDoc:VisualDocument;
+    if(parsed?.version==="1.0"&&Array.isArray(parsed.pages)){
+      nextDoc=parsed as VisualDocument;
+    }else if(parsed?.version==="1.0"&&Array.isArray(parsed.nodes)){
+      nextDoc=createDocument(uid("document"),[parsed as VisualScene]);
+    }else throw new Error("Archivo VisualScene/VisualDocument no válido");
+    setDocument(nextDoc);setPageIndex(0);historyRef.current.reset(nextDoc.pages[0]||DEFAULT_SCENE);setSelectedIds([]);
+    await saveVisualDocument(nextDoc);setStatus("Documento importado");
+  }
+
+  function resizeCanvas(width:number,height:number){
+    const next={...scene,width:Math.max(100,Math.round(width)),height:Math.max(100,Math.round(height))};
+    commit(next,"Cambiar tamaño de canvas");
   }
 
   function setPage(index:number){
@@ -311,10 +379,14 @@ export default function EditorSuite(){
 
   return <main className="suiteShell">
     <input ref={fileInputRef} hidden type="file" accept="image/*" onChange={e=>{const file=e.target.files?.[0];if(file)void addImageFile(file);e.currentTarget.value="";}}/>
+    <input ref={jsonInputRef} hidden type="file" accept=".json,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void importJsonFile(file).catch(err=>setStatus(String(err)));e.currentTarget.value="";}}/>
 
     <header className="suiteTopbar">
       <div className="suiteBrand"><span className="eyebrow">INNOVA VISUAL STUDIO V4</span><strong>Editor completo</strong></div>
       <div className="suiteTopActions">
+        <button onClick={newDocument}>Nuevo</button>
+        <button onClick={()=>jsonInputRef.current?.click()}>Abrir JSON</button>
+        <button onClick={exportDocumentJson}>Guardar JSON</button>
         <button onClick={undo}>↶ Deshacer</button>
         <button onClick={redo}>↷ Rehacer</button>
         <button onClick={()=>setZoom(v=>Math.max(.25,v-.1))}>−</button>
@@ -334,6 +406,7 @@ export default function EditorSuite(){
       </div>
       <div className="toolGroup"><span>Paint</span>
         <button className={tool==="brush"?"active":""} onClick={()=>setTool("brush")}>Pincel</button>
+        <button onClick={()=>selected&&patchPaint("fill",paint.fill)} disabled={!selected}>Balde</button>
         <button className={tool==="eraser"?"active":""} onClick={()=>setTool("eraser")}>Borrador</button>
         <button className={tool==="eyedropper"?"active":""} onClick={()=>setTool("eyedropper")}>Gotero</button>
       </div>
@@ -350,6 +423,7 @@ export default function EditorSuite(){
         <button onClick={addFormula}>ƒx</button>
         <button onClick={addTable}>Tabla</button>
         <button onClick={()=>fileInputRef.current?.click()}>Imagen</button>
+        <button onClick={addImageUrl}>Imagen URL</button>
       </div>
       <div className="toolGroup"><span>Vista</span>
         <button className={showGrid?"active":""} onClick={()=>setShowGrid(v=>!v)}>Cuadrícula</button>
@@ -426,8 +500,19 @@ export default function EditorSuite(){
       <aside className="suiteRight">
         <h2>Propiedades</h2>
         <section className="propSection">
+          <h3>Documento / canvas</h3>
           <label>Fondo del canvas</label>
           <input type="color" value={String(scene.background||"#ffffff")} onChange={e=>commit({...scene,background:e.target.value},"Fondo del canvas")}/>
+          <div className="fieldGrid">
+            <label><span>Ancho</span><input type="number" value={scene.width} onChange={e=>resizeCanvas(Number(e.target.value),scene.height)}/></label>
+            <label><span>Alto</span><input type="number" value={scene.height} onChange={e=>resizeCanvas(scene.width,Number(e.target.value))}/></label>
+          </div>
+          <div className="canvasPresets">
+            <button onClick={()=>resizeCanvas(1200,800)}>1200×800</button>
+            <button onClick={()=>resizeCanvas(1920,1080)}>16:9</button>
+            <button onClick={()=>resizeCanvas(1080,1080)}>1:1</button>
+            <button onClick={()=>resizeCanvas(1080,1920)}>9:16</button>
+          </div>
         </section>
 
         {selectedIds.length>1&&<section className="propSection">
