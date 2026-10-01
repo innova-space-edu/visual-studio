@@ -6,13 +6,16 @@ import { visual } from "@innova-space/visual-design";
 import { compilePlanToScene, ENGINE_CAPABILITIES } from "@innova-space/visual-design/engine";
 import {
   analyzeQuality,
+  candidateKey,
   parseVisualDSL,
   renderSvg,
+  VisualLearningEngine,
+  type LearningSnapshot,
   type VisualScene
 } from "@innova-space/visual-engine";
 import { loadCanvasKit, loadThreeWebGPU } from "@innova-space/visual-engine/browser";
 import { searchAssets } from "@innova-space/visual-assets";
-import { exportEvaluations, loadLatestScene, recordEvaluation, saveLocalScene } from "@/lib/persistence";
+import { exportEvaluations, loadLatestScene, loadLearningSnapshot, recordEvaluation, saveLearningSnapshot, saveLocalScene } from "@/lib/persistence";
 
 type Mode="prompt"|"dsl"|"scene";
 
@@ -112,7 +115,27 @@ export default function StudioClient(){
       quality:quality.score,
       diagnostics:quality.diagnostics
     });
-    setStatus(rating==="good"?"Feedback: correcta":"Feedback: necesita mejora");
+
+    const learning=new VisualLearningEngine();
+    const saved=await loadLearningSnapshot<LearningSnapshot>();
+    if(saved)learning.restore(saved);
+    const metadata=scene.metadata||{};
+    const selected=Array.isArray(metadata.selected_skills)?metadata.selected_skills:[];
+    const skill=String(selected[0]||metadata.visual_type||"generic");
+    const key=candidateKey({
+      skill,
+      layout:String(metadata.layout||"default"),
+      style:String(metadata.style||"default"),
+      renderer:"svg"
+    });
+    const stat=learning.record({
+      key,
+      accepted:rating==="good",
+      quality:quality.score,
+      edits:rating==="good"?0:1
+    });
+    await saveLearningSnapshot(learning.snapshot());
+    setStatus((rating==="good"?"Feedback: correcta":"Feedback: necesita mejora")+" · aprendizaje "+stat.samples+" muestras");
   }
 
   async function exportFeedback(){
