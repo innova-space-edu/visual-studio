@@ -64,7 +64,7 @@ export async function POST(req:NextRequest){
         headers:Object.assign({"Content-Type":"image/png","X-Visual-Quality":String(quality.score)},cors(origin))
       });
     }
-    const rendered=visualEngine.renderSvg(scene,{pretty:false});
+    const rendered=nodeVisualEngine.renderSvg(scene,{pretty:false});
     return new Response(rendered.data as string,{
       status:200,
       headers:Object.assign({"Content-Type":"image/svg+xml; charset=utf-8","X-Visual-Quality":String(quality.score)},cors(origin))
