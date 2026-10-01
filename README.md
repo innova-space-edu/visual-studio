@@ -67,3 +67,20 @@ LEARNING_INGEST_TOKEN
 ```
 
 After deployment visit `/admin/storage`, connect Google Drive once, and use the connection test. The app provisions all managed folders automatically.
+
+
+## Learning Intelligence V5
+
+Before EDUAI integration, Visual Platform closes the learning loop locally and in the dedicated Learning Cloud:
+
+1. Recorder stores raw working history in IndexedDB.
+2. Cloud sync redacts text/image payloads and writes compressed event batches to Google Drive.
+3. Scene structures are anonymized, SHA-256 deduplicated and archived under `scenes/`.
+4. Supabase indexes numeric observations, run outcomes and evidence.
+5. Visual Optimizer proposes candidates only after minimum evidence.
+6. Visual Regression compares current versus candidate behavior on golden cases.
+7. Passing candidates become `recommended`; only an administrator can approve or reject.
+8. Approved candidates may be scheduled as a release with an automatic D-2 review timestamp.
+9. Candidate, regression, experiment and release evidence is archived in Drive.
+
+No optimizer candidate changes production code or parameters automatically in V5. Rollout automation remains a later phase after real EDUAI usage exists.

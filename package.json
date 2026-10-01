@@ -14,9 +14,9 @@
     "check:production": "npm run typecheck && npm run build && npm run verify:production"
   },
   "dependencies": {
-    "@innova-space/visual-assets": "github:innova-space-edu/visual-assets#3b8393bc1df671bf961b1ef391880982570f8d90",
-    "@innova-space/visual-design": "github:innova-space-edu/visual-design-skills#f5a266ebe9b2ec7f2d0afd5d9298614a85cbdb82",
-    "@innova-space/visual-engine": "github:innova-space-edu/visual-engine#905809d421650b2f9c61978dbb62e5bc473bc424",
+    "@innova-space/visual-assets": "github:innova-space-edu/visual-assets#7796c835f8aee07e99672b0861fe62416cc80748",
+    "@innova-space/visual-design": "github:innova-space-edu/visual-design-skills#15a8748f3c6ea4a621f7bdb1d769fb066f5ac0a6",
+    "@innova-space/visual-engine": "github:innova-space-edu/visual-engine#582bcd883901c1295be04b28926d7d8fa1a2a2fb",
     "canvaskit-wasm": "^0.40.0",
     "next": "^16.0.0",
     "react": "^19.3.0",

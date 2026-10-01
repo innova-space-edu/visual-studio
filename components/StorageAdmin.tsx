@@ -13,7 +13,7 @@ type StatusPayload={
     folderCount:number|null;lastSyncAt:string|null;lastError:string|null;
     storageQuota?:{limit?:string;usage?:string;usageInDrive?:string};
   };
-  summary?:{batches:number;runs:number;jobs:number};
+  summary?:{batches:number;runs:number;jobs:number;observations?:number;candidates?:number;experiments?:number;regressions?:number};
   admin?:boolean;
   error?:string;
 };
@@ -128,7 +128,10 @@ export default function StorageAdmin(){
         <div className="storageMetrics">
           <div><span>Lotes</span><strong>{cloud?.summary?.batches??0}</strong></div>
           <div><span>Runs</span><strong>{cloud?.summary?.runs??0}</strong></div>
-          <div><span>Jobs</span><strong>{cloud?.summary?.jobs??0}</strong></div>
+          <div><span>Observaciones</span><strong>{cloud?.summary?.observations??0}</strong></div>
+          <div><span>Candidatos</span><strong>{cloud?.summary?.candidates??0}</strong></div>
+          <div><span>Experimentos</span><strong>{cloud?.summary?.experiments??0}</strong></div>
+          <div><span>Regresiones</span><strong>{cloud?.summary?.regressions??0}</strong></div>
         </div>
         <p className="muted">Supabase no almacena los blobs grandes. Guarda hashes, referencias de Drive, métricas y estados para búsquedas rápidas.</p>
       </article>
