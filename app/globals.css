@@ -80,3 +80,7 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 .fieldGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.propertyField{margin:0;text-transform:none;letter-spacing:0}.propertyField span{display:block;font-size:10px;color:var(--muted);margin-bottom:4px}.propertyField input{width:100%;border:1px solid var(--line);background:#080b10;color:var(--text);border-radius:8px;padding:8px}
 .dangerButton{width:100%;margin-top:8px;border-color:#6b2730;color:#ff9ba4;background:#241016}
 @media(max-width:1000px){.editorGrid{grid-template-columns:220px 1fr}.propertyPanel{display:none}.editorToolbar{margin-right:0}.editorNav{display:none}}
+
+.threeLab{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+.threeHeader{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px}.threeHeader h2{margin:3px 0 0}
+.threeCanvas{display:block;width:100%;height:min(65vh,650px);background:#0b1020;border:1px solid var(--line);border-radius:12px}
