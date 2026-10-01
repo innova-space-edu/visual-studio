@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { createScene, renderSvg, sceneAtTime, type VisualScene, type VisualTimeline } from "@innova-space/visual-engine";
 import { VisualWorkerClient, offscreenCanvasAvailable } from "@innova-space/visual-engine/browser";
+import {enqueueLearningEvent} from "@/lib/persistence";
 
 const BASE=createScene({
   id:"runtime-demo",
@@ -41,6 +42,7 @@ export default function RuntimeLab(){
 
   function play(){
     if(raf.current!==null)return;
+    void enqueueLearningEvent({type:"runtime.timeline.play",source:"visual-studio",runId:"runtime-demo",sceneId:BASE.id,skill:"runtime.animation",payload:{duration:TIMELINE.duration,loop:TIMELINE.loop}});
     const start=performance.now();
     const tick=(now:number)=>{
       setScene(sceneAtTime(BASE,TIMELINE,now-start));
@@ -53,6 +55,7 @@ export default function RuntimeLab(){
     if(raf.current!==null)cancelAnimationFrame(raf.current);
     raf.current=null;
     setScene(BASE);
+    void enqueueLearningEvent({type:"runtime.timeline.stop",source:"visual-studio",runId:"runtime-demo",sceneId:BASE.id,skill:"runtime.animation",payload:{}});
   }
 
   async function testWorker(){
@@ -70,9 +73,11 @@ export default function RuntimeLab(){
       const elapsed=performance.now()-started;
       setWorkerStatus("Worker activo");
       setBenchmark(`25 renders: ${elapsed.toFixed(1)} ms · último ${last.toFixed(2)} ms`);
+      void enqueueLearningEvent({type:"runtime.worker.benchmark",source:"visual-studio",runId:"runtime-demo",sceneId:BASE.id,skill:"runtime.worker",payload:{ok:true,renders:25,elapsedMs:elapsed,lastRenderMs:last,offscreenCanvas:offscreenCanvasAvailable()}});
     }catch(error){
       setWorkerStatus("Worker no disponible");
       setBenchmark(String(error));
+      void enqueueLearningEvent({type:"runtime.worker.benchmark",source:"visual-studio",runId:"runtime-demo",sceneId:BASE.id,skill:"runtime.worker",payload:{ok:false,error:String(error),offscreenCanvas:offscreenCanvasAvailable()}});
     }finally{
       client?.terminate();
     }
