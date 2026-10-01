@@ -4,11 +4,11 @@ import {NextRequest,NextResponse} from "next/server";
 import {sameOriginOrIngestToken} from "@/lib/server/learning-auth";
 import {decryptLearningSecret} from "@/lib/server/learning-crypto";
 import {
-  createSyncJob,findBatchByKey,getDriveAccount,insertBatch,insertObservations,
-  updateDriveAccount,updateSyncJob,upsertRuns
+  createSyncJob,findBatchByKey,findLearningObject,getDriveAccount,insertBatch,insertLearningObject,insertObservations,
+  touchLearningObject,updateDriveAccount,updateSyncJob,upsertRuns
 } from "@/lib/server/learning-db";
 import {scanSkillCandidate} from "@/lib/server/learning-intelligence";
-import {extractLearningObservations,sanitizeLearningEvent,type CloudLearningEvent} from "@/lib/server/learning-sanitize";
+import {extractLearningObservations,extractSceneArtifacts,sanitizeLearningEvent,type CloudLearningEvent} from "@/lib/server/learning-sanitize";
 import {refreshDriveAccessToken,uploadDriveFile} from "@/lib/server/google-drive";
 
 export const runtime="nodejs";
@@ -81,6 +81,35 @@ export async function POST(request:NextRequest){
 
     // Raw content stays in IndexedDB. Cloud history receives structural/redacted events.
     const cloudEvents=events.map(sanitizeLearningEvent);
+
+    const sceneArtifacts=extractSceneArtifacts(events);
+    const sceneFolderId=account.folder_map?.scenes;
+    const sceneRefs:string[]=[];
+    if(sceneFolderId){
+      for(const artifact of sceneArtifacts){
+        const existingObject=await findLearningObject(artifact.sha256);
+        if(existingObject){
+          await touchLearningObject(artifact.sha256,Number(existingObject.reference_count||1)+1);
+          sceneRefs.push(artifact.sha256);
+          continue;
+        }
+        const sceneGz=gzipSync(Buffer.from(artifact.serialized,"utf8"),{level:9});
+        const sceneName="scene-"+artifact.sha256.slice(0,20)+".json.gz";
+        const uploadedScene=await uploadDriveFile({
+          accessToken:(await refreshDriveAccessToken(decryptLearningSecret(account.refresh_token_ciphertext))).access_token,
+          name:sceneName,parentId:sceneFolderId,bytes:new Uint8Array(sceneGz),mimeType:"application/gzip",
+          appProperties:{sha256:artifact.sha256,sceneId:artifact.sceneId,privacy:"structured-v1"}
+        });
+        await insertLearningObject({
+          sha256:artifact.sha256,kind:"scene",provider:"google_drive",
+          drive_file_id:uploadedScene.id,drive_folder_id:sceneFolderId,drive_path:"scenes/"+sceneName,
+          mime_type:"application/gzip",size_bytes:sceneGz.byteLength,reference_count:1,
+          metadata:{sceneId:artifact.sceneId,privacy:"structured-v1"}
+        });
+        sceneRefs.push(artifact.sha256);
+      }
+    }
+
     const jsonl=cloudEvents.map(event=>JSON.stringify(event)).join("\n")+"\n";
     const sha256=hash(jsonl);
     const batchKey="events-"+sha256;
@@ -115,7 +144,7 @@ export async function POST(request:NextRequest){
       first_event_at:times.length?new Date(Math.min(...times)).toISOString():null,
       last_event_at:times.length?new Date(Math.max(...times)).toISOString():null,
       status:"synced",
-      metadata:{source:body.source||"visual-studio",webViewLink:uploaded.webViewLink||null,privacy:"structured-v1"},
+      metadata:{source:body.source||"visual-studio",webViewLink:uploaded.webViewLink||null,privacy:"structured-v1",sceneRefs},
       synced_at:new Date().toISOString()
     });
 
@@ -137,7 +166,7 @@ export async function POST(request:NextRequest){
     });
     return NextResponse.json({
       ok:true,batchId:batch.id,driveFileId:uploaded.id,eventIds:events.map(e=>e.id),
-      sizeBytes:gz.byteLength,observations:observations.length,optimizer
+      sizeBytes:gz.byteLength,observations:observations.length,sceneObjects:sceneRefs.length,optimizer
     });
   }catch(error){
     const message=String(error).slice(0,1000);
