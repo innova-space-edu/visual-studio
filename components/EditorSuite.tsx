@@ -237,7 +237,7 @@ export default function EditorSuite(){
     for(const id of selectedIds){
       const node=findNode(next,id);
       const assetId=node?.metadata?.assetId;
-      if(assetId)recordAssetUsage({assetId:String(assetId),removed:true,kept:false});
+      if(assetId)recordAssetUsage({assetId:String(assetId),inserted:false,removed:true,kept:false});
       next=removeNode(next,id);
     }
     commit(next,"Eliminar "+selectedIds.length+" elemento(s)");
