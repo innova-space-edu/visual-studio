@@ -1,8 +1,6 @@
 "use client";
 
 import {useEffect,useRef,useState} from "react";
-import Cropper from "cropperjs";
-
 export default function ImageCropper({
   src,onApply,onClose
 }:{src:string;onApply:(dataUrl:string)=>void;onClose:()=>void;}){
@@ -20,8 +18,10 @@ export default function ImageCropper({
     image.style.display="none";
     container.appendChild(image);
     let cropper:any=null;
-    image.onload=()=>{
-      cropper=new (Cropper as any)(image,{container});
+    image.onload=async()=>{
+      const mod:any=await import("cropperjs");
+      const Cropper=mod.default||mod.Cropper||mod;
+      cropper=new Cropper(image,{container});
       cropperRef.current=cropper;
     };
     return ()=>{
