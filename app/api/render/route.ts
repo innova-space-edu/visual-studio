@@ -57,7 +57,10 @@ export async function POST(req:NextRequest){
       if(rendered.format!=="png"){
         return Response.json({error:"PNG renderer unavailable",diagnostics:rendered.diagnostics},{status:503,headers:cors(origin)});
       }
-      return new Response(rendered.data as Uint8Array,{
+      const bytes=rendered.data as Uint8Array;
+      const copy=new Uint8Array(bytes.byteLength);
+      copy.set(bytes);
+      return new Response(copy.buffer,{
         status:200,
         headers:Object.assign({"Content-Type":"image/png","X-Visual-Quality":String(quality.score)},cors(origin))
       });
