@@ -27,7 +27,8 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@types/three": "^0.180.0"
   },
   "engines": {
     "node": ">=22"
