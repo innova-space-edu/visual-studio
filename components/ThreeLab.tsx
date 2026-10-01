@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {enqueueLearningEvent} from "@/lib/persistence";
 
 type RendererMode="auto"|"webgl2";
 
@@ -135,14 +136,17 @@ export default function ThreeLab(){
         if(cancelled){next.dispose();return;}
         runtime.current=next;
         setStatus(next.mode==="webgpu"?"WebGPU activo · arrastra para rotar":"WebGL2 activo · fallback local");
+        void enqueueLearningEvent({type:"runtime.3d.renderer",source:"visual-studio",runId:"three-h2o",skill:"three.h2o",payload:{ok:true,renderer:next.mode,requestedMode:mode}});
       }catch(error){
         if(wantsWebGPU){
+          void enqueueLearningEvent({type:"runtime.3d.renderer",source:"visual-studio",runId:"three-h2o",skill:"three.h2o",payload:{ok:false,renderer:"webgpu",fallback:"webgl2",error:String(error)}});
           setStatus("WebGPU falló; cambiando a WebGL2…");
           setMode("webgl2");
           setCanvasKey(value=>value+1);
           return;
         }
         setStatus("Renderer no disponible: "+String(error));
+        void enqueueLearningEvent({type:"runtime.3d.renderer",source:"visual-studio",runId:"three-h2o",skill:"three.h2o",payload:{ok:false,renderer:"webgl2",error:String(error)}});
       }
     }
     start();
