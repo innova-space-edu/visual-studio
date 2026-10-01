@@ -97,7 +97,7 @@ function totalFromRange(value:string|null){
 
 async function count(table:string){
   const env=requireLearningEnv();
-  const res=await fetch(env.supabaseUrl+"/rest/v1/"+table+"?select=id&limit=1",{
+  const res=await fetch(env.supabaseUrl+"/rest/v1/"+table+"?select=*&limit=1",{
     method:"GET",cache:"no-store",
     headers:{
       apikey:env.supabaseServiceKey,
@@ -105,7 +105,10 @@ async function count(table:string){
       Prefer:"count=exact"
     }
   });
-  if(!res.ok)throw new Error("Learning Supabase count "+res.status);
+  if(!res.ok){
+    const body=await res.text().catch(()=>"");
+    throw new Error("Learning Supabase count "+table+" "+res.status+": "+body.slice(0,300));
+  }
   return totalFromRange(res.headers.get("content-range"));
 }
 

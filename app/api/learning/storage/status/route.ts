@@ -15,11 +15,21 @@ function maskEmail(value:string|null){
 export async function GET(){
   try{
     const env=learningEnv();
-    const [account,summary,session]=await Promise.all([
+    const [account,session]=await Promise.all([
       env.supabaseUrl&&env.supabaseServiceKey?getDriveAccount():Promise.resolve(null),
-      env.supabaseUrl&&env.supabaseServiceKey?getLearningCloudSummary():Promise.resolve({batches:0,runs:0,jobs:0}),
       currentLearningAdmin()
     ]);
+
+    let summary={batches:0,runs:0,jobs:0};
+    let summaryWarning:string|null=null;
+    if(env.supabaseUrl&&env.supabaseServiceKey){
+      try{
+        summary=await getLearningCloudSummary();
+      }catch(error){
+        summaryWarning=String(error);
+      }
+    }
+
     const isAdmin=!!session&&!!account?.account_email&&session.email===account.account_email.toLowerCase();
     return NextResponse.json({
       configured:{
@@ -40,6 +50,7 @@ export async function GET(){
         storageQuota:isAdmin?(account?.metadata as any)?.storageQuota||null:null
       },
       summary,
+      warnings:summaryWarning?[summaryWarning]:[],
       admin:isAdmin
     },{headers:{"Cache-Control":"no-store"}});
   }catch(error){
