@@ -2,20 +2,27 @@ import { copyFile, mkdir, access } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 
-const candidates=[
-  path.join(process.cwd(),"node_modules","canvaskit-wasm","bin","canvaskit.wasm"),
-  path.join(process.cwd(),"node_modules","@innova-space","visual-engine","node_modules","canvaskit-wasm","bin","canvaskit.wasm")
+const roots=[
+  path.join(process.cwd(),"node_modules","canvaskit-wasm","bin"),
+  path.join(process.cwd(),"node_modules","@innova-space","visual-engine","node_modules","canvaskit-wasm","bin")
 ];
 const destinationDir=path.join(process.cwd(),"public","wasm");
-const destination=path.join(destinationDir,"canvaskit.wasm");
 await mkdir(destinationDir,{recursive:true});
-let source=null;
-for(const candidate of candidates){
-  try{await access(candidate,constants.R_OK);source=candidate;break;}catch{}
+
+async function find(file){
+  for(const root of roots){
+    const candidate=path.join(root,file);
+    try{await access(candidate,constants.R_OK);return candidate;}catch{}
+  }
+  return null;
 }
-if(!source){
-  console.warn("[visual-studio] CanvasKit WASM not found; Skia probe unavailable.");
-  process.exit(0);
+
+for(const file of ["canvaskit.js","canvaskit.wasm"]){
+  const source=await find(file);
+  if(!source){
+    console.warn("[visual-studio] "+file+" not found; Skia probe unavailable.");
+    continue;
+  }
+  await copyFile(source,path.join(destinationDir,file));
+  console.log("[visual-studio] self-hosted "+file);
 }
-await copyFile(source,destination);
-console.log("[visual-studio] CanvasKit WASM self-hosted.");
