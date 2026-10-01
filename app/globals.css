@@ -175,3 +175,10 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 
 .canvasPresets{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px}
 .canvasPresets button{border:1px solid var(--line);background:#151d2a;color:var(--text);border-radius:7px;padding:7px;font-size:10px}
+
+.learningSuite{display:grid;gap:14px}
+.learningHero{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:18px}.learningHero h2{margin:4px 0 6px}.learningHeroMetric{min-width:120px;text-align:center;border:1px solid var(--line);background:#090d13;border-radius:12px;padding:14px}.learningHeroMetric span,.learningHeroMetric strong{display:block}.learningHeroMetric span{font-size:9px;color:var(--muted);text-transform:uppercase}.learningHeroMetric strong{font-size:28px;margin-top:5px}
+.learningTabs{display:flex;gap:7px;flex-wrap:wrap}.learningTabs button{border:1px solid var(--line);background:#111824;color:var(--text);border-radius:8px;padding:8px 12px}.learningTabs .active{background:#20345e;border-color:#4f7ddd}
+.learningOverview{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.learningOverview article{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px}.learningOverview span,.learningOverview strong,.learningOverview small{display:block}.learningOverview span{font-size:9px;color:var(--muted);text-transform:uppercase}.learningOverview strong{font-size:26px;margin:5px 0}.learningOverview small{font-size:10px;color:#8291aa;line-height:1.35}
+.learningColumns{display:grid;grid-template-columns:1.4fr 1fr;gap:12px}.learningRow.four{grid-template-columns:1fr 90px 110px 100px}
+@media(max-width:900px){.learningOverview{grid-template-columns:1fr 1fr}.learningColumns{grid-template-columns:1fr}.learningRow.four{grid-template-columns:1fr 70px 90px 80px}}
