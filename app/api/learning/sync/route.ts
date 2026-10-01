@@ -140,7 +140,11 @@ export async function POST(request:NextRequest){
     if(observations.length)await insertObservations(observations);
 
     const optimizer:any[]=[];
-    for(const skill of [...new Set(observations.map(row=>String(row.skill||"")).filter(Boolean))]){
+    const affectedSkills=[...new Set([
+      ...observations.map(row=>String(row.skill||"")),
+      ...events.map(event=>String(event.skill||""))
+    ].filter(Boolean))];
+    for(const skill of affectedSkills){
       try{optimizer.push({skill,...await scanSkillCandidate(skill)});}
       catch(error){optimizer.push({skill,created:false,reason:String(error)});}
     }
