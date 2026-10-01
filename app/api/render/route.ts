@@ -2,11 +2,10 @@ import { NextRequest } from "next/server";
 import {
   analyzeQuality,
   flattenNodes,
-  hydrateMath,
-  visualEngine,
   type ImageNode,
   type VisualScene
 } from "@innova-space/visual-engine";
+import { hydrateMath, nodeVisualEngine } from "@innova-space/visual-engine/node";
 
 export const runtime="nodejs";
 export const maxDuration=30;
@@ -53,7 +52,7 @@ export async function POST(req:NextRequest){
     }
     const quality=analyzeQuality(scene);
     if(body.format==="png"){
-      const rendered=await visualEngine.renderPng(scene,{pixelRatio:Math.min(4,Math.max(1,Number(body.pixelRatio)||1))});
+      const rendered=await nodeVisualEngine.renderPng(scene,{pixelRatio:Math.min(4,Math.max(1,Number(body.pixelRatio)||1))});
       if(rendered.format!=="png"){
         return Response.json({error:"PNG renderer unavailable",diagnostics:rendered.diagnostics},{status:503,headers:cors(origin)});
       }
