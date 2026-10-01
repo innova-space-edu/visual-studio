@@ -12,9 +12,9 @@
     "postinstall": "node scripts/copy-wasm.mjs"
   },
   "dependencies": {
-    "@innova-space/visual-assets": "github:innova-space-edu/visual-assets#7b6b895f0cebd8847044529bfe7948c1a804ddcd",
-    "@innova-space/visual-design": "github:innova-space-edu/visual-design-skills#5d50863ea6ec8881989fa0059ca0f3356978dd02",
-    "@innova-space/visual-engine": "github:innova-space-edu/visual-engine#ad40ea5e27c55917e3acc01f13d1173532ef11ee",
+    "@innova-space/visual-assets": "github:innova-space-edu/visual-assets#da382a2d24fd092c96396421ee8431ee8cb14a95",
+    "@innova-space/visual-design": "github:innova-space-edu/visual-design-skills#6609bd34533598258173197985f38a9dcb3b1631",
+    "@innova-space/visual-engine": "github:innova-space-edu/visual-engine#d80adf480ec86d3806674423c302ee7d38804f7f",
     "canvaskit-wasm": "^0.40.0",
     "next": "^16.0.0",
     "react": "^19.3.0",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { visual } from "@innova-space/visual-design";
 import { compilePlanToScene, ENGINE_CAPABILITIES } from "@innova-space/visual-design/engine";
 import {
@@ -186,7 +187,7 @@ export default function StudioClient(){
         <span className="eyebrow">INNOVA SPACE · LOCAL-FIRST</span>
         <h1>Visual Engine Studio</h1>
       </div>
-      <div className="status"><span className="dot"/>{status}</div>
+      <div className="topActions"><Link className="navLink" href="/platform">Plataforma</Link><div className="status"><span className="dot"/>{status}</div></div>
     </header>
 
     <section className="workspace">
