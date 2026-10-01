@@ -47,10 +47,29 @@ export async function POST(req:NextRequest){
       return Response.json({error:"VisualScene 1.0 is required"},{status:400,headers:cors(origin)});
     }
     validateLocalOnly(scene);
+    let mathStatus="disabled";
+    let mathError="";
     if(body.math!==false){
-      try{scene=await hydrateMath(scene);}catch{}
+      try{
+        scene=await hydrateMath(scene);
+        mathStatus="ok";
+      }catch(error){
+        mathStatus="fallback";
+        mathError=String(error);
+        if(body.strictMath===true){
+          return Response.json({error:"MathJax hydration failed",detail:mathError},{
+            status:500,
+            headers:Object.assign({"X-Visual-Math":"error"},cors(origin))
+          });
+        }
+      }
     }
     const quality=analyzeQuality(scene);
+    const responseHeaders=Object.assign({
+      "X-Visual-Quality":String(quality.score),
+      "X-Visual-Math":mathStatus
+    },cors(origin));
+    if(mathError)responseHeaders["X-Visual-Math-Fallback"]="1";
     const format=String(body.format||"svg").toLowerCase();
     const pixelRatio=Math.min(4,Math.max(1,Number(body.pixelRatio)||1));
 
@@ -61,7 +80,7 @@ export async function POST(req:NextRequest){
       copy.set(bytes);
       return new Response(copy.buffer,{
         status:200,
-        headers:Object.assign({"Content-Type":"image/png","X-Visual-Quality":String(quality.score)},cors(origin))
+        headers:Object.assign({"Content-Type":"image/png"},responseHeaders)
       });
     }
 
@@ -72,7 +91,7 @@ export async function POST(req:NextRequest){
       copy.set(bytes);
       return new Response(copy.buffer,{
         status:200,
-        headers:Object.assign({"Content-Type":"image/webp","X-Visual-Quality":String(quality.score)},cors(origin))
+        headers:Object.assign({"Content-Type":"image/webp"},responseHeaders)
       });
     }
 
@@ -83,7 +102,7 @@ export async function POST(req:NextRequest){
       copy.set(bytes);
       return new Response(copy.buffer,{
         status:200,
-        headers:Object.assign({"Content-Type":"image/avif","X-Visual-Quality":String(quality.score)},cors(origin))
+        headers:Object.assign({"Content-Type":"image/avif"},responseHeaders)
       });
     }
 
@@ -94,7 +113,7 @@ export async function POST(req:NextRequest){
       copy.set(bytes);
       return new Response(copy.buffer,{
         status:200,
-        headers:Object.assign({"Content-Type":"application/pdf","X-Visual-Quality":String(quality.score)},cors(origin))
+        headers:Object.assign({"Content-Type":"application/pdf"},responseHeaders)
       });
     }
 
@@ -105,7 +124,7 @@ export async function POST(req:NextRequest){
     const rendered=nodeVisualEngine.renderSvg(scene,{pretty:false});
     return new Response(rendered.data as string,{
       status:200,
-      headers:Object.assign({"Content-Type":"image/svg+xml; charset=utf-8","X-Visual-Quality":String(quality.score)},cors(origin))
+      headers:Object.assign({"Content-Type":"image/svg+xml; charset=utf-8"},responseHeaders)
     });
   }catch(error){
     return Response.json({error:String(error)},{status:400,headers:cors(origin)});
