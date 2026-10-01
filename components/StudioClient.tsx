@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";\nimport Link from "next/link";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { visual } from "@innova-space/visual-design";
 import { compilePlanToScene, ENGINE_CAPABILITIES } from "@innova-space/visual-design/engine";
 import {
