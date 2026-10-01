@@ -3,7 +3,7 @@
 import {useEffect,useMemo,useRef,useState} from "react";
 import Konva from "konva";
 import {
-  Stage,Layer,Group,Rect,Circle,Ellipse,Line,Text,Image as KonvaImage,Path,Transformer
+  Stage,Layer,Group,Rect,Circle,Ellipse,Line,Arrow,Text,Image as KonvaImage,Path,Transformer
 } from "react-konva";
 import {
   addNode,findNode,flattenNodes,removeNode,updateNode,
@@ -141,7 +141,7 @@ function SceneNode({
   if(node.type==="rect")content=<Rect x={node.x} y={node.y} width={node.width} height={node.height} cornerRadius={node.rx||0} {...commonPaint}/>;
   else if(node.type==="circle")content=<Circle x={node.cx} y={node.cy} radius={node.r} {...commonPaint}/>;
   else if(node.type==="ellipse")content=<Ellipse x={node.cx} y={node.cy} radiusX={node.rx} radiusY={node.ry} {...commonPaint}/>;
-  else if(node.type==="line")content=<Line points={[node.x1,node.y1,node.x2,node.y2]} {...commonPaint}/>;
+  else if(node.type==="line")content=node.markerEnd?<Arrow points={[node.x1,node.y1,node.x2,node.y2]} pointerLength={10} pointerWidth={9} {...commonPaint}/>:<Line points={[node.x1,node.y1,node.x2,node.y2]} {...commonPaint}/>;
   else if(node.type==="polyline"||node.type==="polygon")content=<Line points={node.points.flat()} closed={node.type==="polygon"} {...commonPaint}/>;
   else if(node.type==="path")content=<Path data={node.d} {...commonPaint}/>;
   else if(node.type==="text")content=<Text
@@ -149,8 +149,7 @@ function SceneNode({
     text={node.text} width={node.maxWidth}
     fontFamily={node.style?.family||"Inter,Arial,sans-serif"}
     fontSize={node.style?.size||16}
-    fontStyle={node.style?.style||"normal"}
-    fontVariant={String(node.style?.weight||400)}
+    fontStyle={((Number(node.style?.weight)||400)>=600?"bold ":"")+(node.style?.style==="italic"?"italic":"")||"normal"}
     align={mapAlign(node.style?.align)}
     lineHeight={node.style?.lineHeight||1.2}
     letterSpacing={node.style?.letterSpacing||0}
@@ -274,7 +273,6 @@ export default function KonvaSceneCanvas(props:Props){
     onPointerMove={stageMove}
     onPointerUp={stageUp}
     onPointerCancel={stageUp}
-    style={{background:scene.background||"#ffffff"}}
   >
     <Layer>
       <Rect x={0} y={0} width={scene.width} height={scene.height} fill={scene.background||"#ffffff"} listening={false}/>
