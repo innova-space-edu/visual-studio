@@ -95,3 +95,9 @@ pre{font-size:10px;line-height:1.5;white-space:pre-wrap;background:#080b10;borde
 .runtimeStats div{border:1px solid var(--line);border-radius:10px;padding:12px;background:#090d13}
 .runtimeStats span,.runtimeStats strong{display:block}.runtimeStats span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.runtimeStats strong{font-size:12px;margin-top:5px;word-break:break-word}
 @media(max-width:760px){.runtimeStats{grid-template-columns:1fr}}
+
+.statusRows{display:grid;gap:8px}
+.statusRows div,.statusGroup{display:flex;align-items:center;justify-content:space-between;gap:14px;border:1px solid var(--line);border-radius:10px;padding:11px;background:#090d13}
+.statusRows span{color:var(--muted);font-size:11px}.statusRows strong{font-size:12px;text-align:right}
+.statusGroup{margin-top:8px}.statusGroup strong{font-size:20px}
+.smallMetric{font-size:16px!important;word-break:break-all}
