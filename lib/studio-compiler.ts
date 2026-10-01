@@ -266,7 +266,7 @@ function compileFlow(prompt:string):VisualScene{
   steps.forEach((labelValue,i)=>{
     const cx=left+i*spacing,cardW=Math.min(180,spacing-28),x=cx-cardW/2;
     nodes.push(rect("flow-node-"+i,x,y,cardW,110,i===0?C.greenSoft:i===steps.length-1?C.violetSoft:"#ffffff",i===0?C.green:i===steps.length-1?C.violet:"#94a3b8",20));
-    nodes.push(text("flow-label-"+i,labelValue,x+16,y+25,cardW-32,65,17,700,C.ink,"middle"));
+    nodes.push(text("flow-label-"+i,labelValue,x+cardW/2,y+25,cardW-32,65,17,700,C.ink,"middle"));
     if(i<steps.length-1)nodes.push(line("flow-edge-"+i,x+cardW,y+55,left+(i+1)*spacing-cardW/2-12,y+55,{stroke:C.ink,strokeWidth:2.5},true));
   });
   return createScene({
