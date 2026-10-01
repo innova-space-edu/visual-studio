@@ -6,7 +6,12 @@ const required=[
   ".next",
   "public/wasm/canvaskit.js",
   "public/wasm/canvaskit.wasm",
-  "vercel.json"
+  "vercel.json",
+  "app/api/auth/google-drive/start/route.ts",
+  "app/api/auth/google-drive/callback/route.ts",
+  "app/api/learning/sync/route.ts",
+  "app/admin/storage/page.tsx",
+  "supabase/migrations/20261001224000_learning_cloud_v1.sql"
 ];
 
 const missing=required.filter(item=>!fs.existsSync(path.join(root,item)));
