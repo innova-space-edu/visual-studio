@@ -1,4 +1,5 @@
-import { compilePlanToScene } from "@innova-space/visual-design/engine";\nimport { parseVisualRequest, resolveKnowledgeContent, type MoleculeKnowledge } from "@/lib/knowledge-base";
+import { compilePlanToScene } from "@innova-space/visual-design/engine";
+import { parseVisualRequest, resolveKnowledgeContent, type MoleculeKnowledge } from "@/lib/knowledge-base";
 import {
   createScene,
   fitText,
