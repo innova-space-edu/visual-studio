@@ -17,7 +17,8 @@ const required=[
   "lib/server/learning-intelligence.ts",
   "lib/server/learning-sanitize.ts",
   "lib/server/learning-archive.ts",
-  "lib/learning/golden-cases.ts"
+  "lib/learning/golden-cases.ts",
+  "lib/knowledge-base.ts"
 ];
 
 const missing=required.filter(item=>!fs.existsSync(path.join(root,item)));
@@ -78,6 +79,30 @@ const katex=katexModule.default||katexModule;
 const katexHtml=katex.renderToString("\\frac{a}{b}",{displayMode:true,throwOnError:true});
 if(!katexHtml.includes("katex")){
   console.error("[visual-studio] KaTeX fallback validator is unavailable");
+  process.exit(1);
+}
+
+const knowledgeSource=fs.readFileSync(path.join(root,"lib/knowledge-base.ts"),"utf8");
+const compilerSource=fs.readFileSync(path.join(root,"lib/studio-compiler.ts"),"utf8");
+const studioSource=fs.readFileSync(path.join(root,"components/StudioClient.tsx"),"utf8");
+for(const expected of ["Sistema Solar","Dióxido de carbono","Metano","Célula animal","Ciclo del agua"]){
+  if(!knowledgeSource.includes(expected)){
+    console.error("[visual-studio] dynamic knowledge catalog is missing:",expected);
+    process.exit(1);
+  }
+}
+for(const expected of ["parseVisualRequest","resolveKnowledgeContent","compileMolecule"]){
+  if(!compilerSource.includes(expected)){
+    console.error("[visual-studio] dynamic prompt compiler is incomplete:",expected);
+    process.exit(1);
+  }
+}
+if(compilerSource.includes("Define el concepto central con una frase breve y verificable.")){
+  console.error("[visual-studio] legacy fixed infographic cards are still active");
+  process.exit(1);
+}
+if(!studioSource.includes('name:"Sistema solar"')||!studioSource.includes('name:"Molécula CO₂"')){
+  console.error("[visual-studio] dynamic prompt presets are missing");
   process.exit(1);
 }
 
