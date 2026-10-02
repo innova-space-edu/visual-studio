@@ -242,8 +242,76 @@ function compileMolecule(prompt:string):VisualScene{
   });
 }
 
+function compileSolarSystemInfographic(prompt:string):VisualScene{
+  const request=parseVisualRequest(prompt);
+  const content=resolveKnowledgeContent(request,prompt);
+  const width=1200,height=800;
+  const nodes:VisualNode[]=[
+    titleNode(content.title,width),
+    text("solar-subtitle",content.subtitle||"El Sol y los cuerpos que orbitan a su alrededor",64,118,950,34,15,700,C.muted)
+  ];
+  const planets=[
+    {name:"Mercurio",r:12,fill:"#94a3b8"},
+    {name:"Venus",r:18,fill:"#f59e0b"},
+    {name:"Tierra",r:19,fill:"#3b82f6"},
+    {name:"Marte",r:15,fill:"#ef4444"},
+    {name:"Júpiter",r:34,fill:"#d97706"},
+    {name:"Saturno",r:30,fill:"#eab308"},
+    {name:"Urano",r:24,fill:"#67e8f9"},
+    {name:"Neptuno",r:23,fill:"#2563eb"}
+  ];
+  const sunX=105,sunY=340;
+  nodes.push(circle("sun",sunX,sunY,52,"#fde047","#f59e0b"));
+  nodes.push(text("sun-label","Sol",sunX-28,sunY+68,56,26,16,850,C.amber,"middle"));
+  nodes.push(line("solar-axis",165,sunY,1120,sunY,{stroke:"#cbd5e1",strokeWidth:2,dash:[6,7]}));
+  const startX=225,endX=1085;
+  const spacing=(endX-startX)/(planets.length-1);
+  planets.forEach((planet,i)=>{
+    const x=startX+i*spacing;
+    nodes.push(circle("planet-"+i,x,sunY,planet.r,planet.fill,"#475569"));
+    if(planet.name==="Saturno"){
+      nodes.push(line("saturn-ring",x-43,sunY,x+43,sunY,{stroke:"#a16207",strokeWidth:3}));
+    }
+    nodes.push(text("planet-label-"+i,planet.name,x-52,sunY+54,104,30,13,700,C.ink,"middle"));
+  });
+
+  const cards=[
+    ["Planetas interiores","Mercurio, Venus, Tierra y Marte son rocosos y se encuentran más cerca del Sol."],
+    ["Planetas exteriores","Júpiter, Saturno, Urano y Neptuno son gigantes y se ubican en la región exterior."],
+    ["Otros cuerpos","El sistema también contiene planetas enanos, asteroides, cometas, meteoroides y satélites naturales."]
+  ];
+  cards.forEach((card,i)=>{
+    const x=64+i*365,y=500;
+    const palette=[[C.blueSoft,C.blue],[C.greenSoft,C.green],[C.violetSoft,C.violet]] as const;
+    const colors=palette[i]!;
+    nodes.push(rect("solar-card-"+i,x,y,330,190,colors[0],colors[1],22));
+    nodes.push(text("solar-card-title-"+i,card[0],x+24,y+22,282,42,19,800,C.ink));
+    nodes.push(text("solar-card-body-"+i,card[1],x+24,y+74,282,92,15,520,C.ink));
+  });
+
+  return createScene({
+    id:"studio-solar-system",width,height,background:"#f8fafc",
+    title:content.title,
+    description:content.subtitle,
+    metadata:{
+      source:"visual-studio/dynamic-compiler",
+      visual_type:"infographic",
+      selected_skills:["infographic","educational-image","science-diagram"],
+      topic:request.topic,
+      subject:"astronomía",
+      semanticRequirements:[
+        {id:"sun",nodeIds:["sun","sun-label"]},
+        {id:"eight-planets",nodeIds:planets.map((_,i)=>"planet-"+i)},
+        {id:"planet-labels",nodeIds:planets.map((_,i)=>"planet-label-"+i)}
+      ]
+    },
+    nodes
+  });
+}
+
 function compileInfographic(prompt:string):VisualScene{
   const request=parseVisualRequest(prompt);
+  if(request.normalizedTopic.includes("sistema solar"))return compileSolarSystemInfographic(prompt);
   const content=resolveKnowledgeContent(request,prompt);
   const width=1200,height=800;
   const sections=content.sections.slice(0,6);
