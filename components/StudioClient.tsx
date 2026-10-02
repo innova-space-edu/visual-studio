@@ -25,9 +25,11 @@ const DEFAULT_PROMPT="Crea una infografía educativa sobre conservación de la m
 const DEFAULT_DSL='CANVAS 1200x800\nBACKGROUND "#f8fafc"\nTITLE "Visual DSL"\nRECT 80 150 430 220\nTEXT 120 220 "Editable y determinista"\nARROW 530 260 760 260\nCIRCLE 880 260 90\nMATH 780 470 "x^2+y^2=r^2"';
 
 const PRESETS=[
-  {name:"Infografía",prompt:"Crea una infografía educativa sobre conservación de la materia con tres secciones claras."},
+  {name:"Sistema solar",prompt:"Crea una infografía educativa sobre sistema solar con seis secciones."},
+  {name:"Molécula H₂O",prompt:"Crea una imagen educativa de la molécula de agua H2O."},
+  {name:"Molécula CO₂",prompt:"Crea una imagen educativa de la molécula de dióxido de carbono CO2."},
+  {name:"Biología",prompt:"Crea una infografía educativa sobre célula animal con cinco secciones."},
   {name:"Matemática",prompt:"Diagrama matemático de homotecia k=-2 con plano cartesiano y fórmula P'=O+k(P-O)."},
-  {name:"Química",prompt:"Diagrama de química de una molécula de agua H2O y la ecuación 2H2 + O2 -> 2H2O."},
   {name:"Flujo",prompt:"Diagrama de flujo del proceso: solicitud, validación, render, control de calidad, exportación."}
 ];
 
@@ -56,7 +58,12 @@ export default function StudioClient(){
   const quality=useMemo(function(){
     return scene?analyzeStudioQuality(scene,mode==="prompt"?prompt:""):null;
   },[scene,mode,prompt]);
-  const assets=useMemo(function(){return searchAssets(scene?"math":"").slice(0,4);},[scene]);
+  const assets=useMemo(function(){
+    if(!scene)return searchAssets("").slice(0,4);
+    const metadata=scene.metadata||{};
+    const query=[metadata.topic,metadata.subject,metadata.visual_type,scene.title].filter(Boolean).join(" ");
+    return searchAssets(query).slice(0,6);
+  },[scene]);
 
   useEffect(()=>installLearningAutoSync(),[]);
 

@@ -1,4 +1,5 @@
 import { compilePlanToScene } from "@innova-space/visual-design/engine";
+import { parseVisualRequest, resolveKnowledgeContent, type MoleculeKnowledge } from "@/lib/knowledge-base";
 import {
   createScene,
   fitText,
@@ -155,100 +156,209 @@ function extractEquation(prompt:string){
   return m?.[1]?.trim()||"2H2 + O2 -> 2H2O";
 }
 
-function compileWaterChemistry(prompt:string):VisualScene{
+function moleculePositions(molecule:MoleculeKnowledge,cx:number,cy:number){
+  const n=molecule.atoms.length;
+  if(n===2)return [[cx-90,cy],[cx+90,cy]] as Array<[number,number]>;
+  if(n===3&&molecule.geometry==="lineal")return [[cx-145,cy],[cx,cy],[cx+145,cy]] as Array<[number,number]>;
+  if(n===3)return [[cx,cy+35],[cx-110,cy-95],[cx+110,cy-95]] as Array<[number,number]>;
+  if(n===4)return [[cx,cy],[cx-120,cy+90],[cx+120,cy+90],[cx,cy-135]] as Array<[number,number]>;
+  if(n===5)return [[cx,cy],[cx-125,cy],[cx+125,cy],[cx,cy-130],[cx,cy+130]] as Array<[number,number]>;
+  return molecule.atoms.map((_,i)=>{
+    const angle=(Math.PI*2*i)/Math.max(1,n);
+    return [cx+Math.cos(angle)*145,cy+Math.sin(angle)*145] as [number,number];
+  });
+}
+
+function compileMolecule(prompt:string):VisualScene{
+  const request=parseVisualRequest(prompt);
+  const content=resolveKnowledgeContent(request,prompt);
+  const molecule=content.molecule;
+  if(!molecule)return compileInfographic(prompt);
   const width=1200,height=800;
-  const nodes:VisualNode[]=[titleNode("Molécula de agua (H₂O) y ecuación química",width)];
-  const ox=360,oy=380,bond=135;
-  const half=104.5/2;
-  const leftAngle=(90+half)*Math.PI/180;
-  const rightAngle=(90-half)*Math.PI/180;
-  const h1={x:ox+Math.cos(leftAngle)*bond,y:oy-Math.sin(leftAngle)*bond};
-  const h2={x:ox+Math.cos(rightAngle)*bond,y:oy-Math.sin(rightAngle)*bond};
+  const nodes:VisualNode[]=[
+    titleNode(content.title,width),
+    text("molecule-kicker","MODELO MOLECULAR EDUCATIVO",64,118,360,28,13,800,C.violet)
+  ];
+  const cx=350,cy=405;
+  const positions=moleculePositions(molecule,cx,cy);
+  const centerIndex=molecule.atoms.length>2&&["angular","tetraédrica","piramidal trigonal"].includes(molecule.geometry)?0:
+    molecule.atoms.length===3&&molecule.geometry==="lineal"?1:-1;
 
-  nodes.push(line("bond-0",ox,oy,h1.x,h1.y,{stroke:"#64748b",strokeWidth:12}));
-  nodes.push(line("bond-1",ox,oy,h2.x,h2.y,{stroke:"#64748b",strokeWidth:12}));
-  nodes.push(circle("atom-o",ox,oy,52,C.redSoft,"#991b1b"));
-  nodes.push(circle("atom-h-0",h1.x,h1.y,38,C.blueSoft,"#1d4ed8"));
-  nodes.push(circle("atom-h-1",h2.x,h2.y,38,C.blueSoft,"#1d4ed8"));
-  nodes.push(text("atom-o-label","O",ox-13,oy-17,30,36,24,850,"#7f1d1d"));
-  nodes.push(text("atom-h0-label","H",h1.x-12,h1.y-16,30,34,21,850,"#1e3a8a"));
-  nodes.push(text("atom-h1-label","H",h2.x-12,h2.y-16,30,34,21,850,"#1e3a8a"));
-  nodes.push(text("bond-angle","≈ 104,5°",ox-42,oy+68,110,32,15,700,C.muted));
+  if(centerIndex>=0){
+    positions.forEach((pos,i)=>{
+      if(i===centerIndex)return;
+      nodes.push(line("bond-"+i,positions[centerIndex]![0],positions[centerIndex]![1],pos[0],pos[1],{stroke:"#64748b",strokeWidth:10}));
+    });
+  }else{
+    for(let i=0;i<positions.length-1;i++){
+      nodes.push(line("bond-"+i,positions[i]![0],positions[i]![1],positions[i+1]![0],positions[i+1]![1],{stroke:"#64748b",strokeWidth:10}));
+    }
+  }
 
-  nodes.push(rect("chem-info-card",610,160,500,430,"#ffffff","#cbd5e1",24));
-  nodes.push(text("chem-card-title","Representación estructurada",638,188,444,40,20,800,C.green));
-  nodes.push(text("chem-copy",
-    "La molécula conserva cada átomo como un elemento editable. La geometría muestra la forma angular característica del agua.",
-    638,238,444,92,17,520,C.ink));
-  nodes.push(text("equation-label","Ecuación solicitada",638,355,444,30,16,800,C.muted));
-  nodes.push({id:"reaction-equation",type:"math",x:638,y:430,latex:chemicalLatex(extractEquation(prompt)),scale:.78,paint:{fill:C.ink}});
-  nodes.push(text("chem-note",
-    "La ecuación se renderiza como matemática, no como píxeles generados.",
-    638,500,444,60,15,550,C.muted));
+  positions.forEach((pos,i)=>{
+    const atom=molecule.atoms[i]!;
+    const radius=atom.symbol.length>2?45:40;
+    nodes.push(circle("atom-"+i,pos[0],pos[1],radius,atom.color,C.ink));
+    nodes.push(text("atom-label-"+i,atom.symbol,pos[0]-28,pos[1]-18,56,40,22,850,C.ink,"middle"));
+    nodes.push(text("atom-name-"+i,atom.label,pos[0]-70,pos[1]+52,140,30,13,650,C.muted,"middle"));
+  });
+
+  if(molecule.angle){
+    nodes.push(text("molecule-angle",molecule.angle,cx-60,cy+165,120,32,15,750,C.muted,"middle"));
+  }
+
+  const x=650,y=160,w=470,h=500;
+  nodes.push(rect("molecule-info",x,y,w,h,"#ffffff","#cbd5e1",24));
+  nodes.push(text("molecule-info-title","Propiedades principales",x+28,y+24,w-56,38,20,800,C.green));
+  const facts=[
+    ["Fórmula",molecule.formula],
+    ["Geometría",molecule.geometry],
+    ["Enlace",molecule.bondType],
+    ["Polaridad",molecule.polarity]
+  ];
+  facts.forEach((fact,i)=>{
+    const fy=y+88+i*65;
+    nodes.push(text("fact-label-"+i,fact[0],x+28,fy,w-56,24,14,800,C.muted));
+    nodes.push(text("fact-value-"+i,fact[1],x+28,fy+24,w-56,34,19,700,C.ink));
+  });
+  nodes.push(text("molecule-description",molecule.description,x+28,y+365,w-56,108,16,520,C.ink));
 
   return createScene({
-    id:"studio-water-chemistry",width,height,background:"#f8fafc",
-    title:"Molécula de agua H2O",
-    description:"Modelo 2D determinista de H2O con geometría angular y ecuación química.",
+    id:"studio-molecule-"+molecule.formula.toLowerCase(),width,height,background:"#f8fafc",
+    title:content.title,
+    description:molecule.description,
     metadata:{
-      source:"visual-studio/enhanced-compiler",
+      source:"visual-studio/dynamic-compiler",
       visual_type:"chemistry-diagram",
-      selected_skills:["chemistry-diagram"],
+      selected_skills:["chemistry-diagram","educational-image"],
+      topic:request.topic,
+      formula:molecule.formula,
       semanticRequirements:[
-        {id:"water-atoms",nodeIds:["atom-o","atom-h-0","atom-h-1"]},
-        {id:"water-bonds",nodeIds:["bond-0","bond-1"]},
-        {id:"reaction-equation",nodeIds:["reaction-equation"]}
+        {id:"molecule-atoms",nodeIds:positions.map((_,i)=>"atom-"+i)},
+        {id:"molecule-properties",nodeIds:["molecule-info","molecule-description"]}
       ]
     },
     nodes
   });
 }
 
-function topicFromPrompt(prompt:string){
-  const m=prompt.match(/\bsobre\s+(.+?)(?:\s+con\s+\d+|\s+con\s+(?:tres|cuatro|cinco)|\.|$)/i);
-  return (m?.[1]||prompt).trim();
+function compileSolarSystemInfographic(prompt:string):VisualScene{
+  const request=parseVisualRequest(prompt);
+  const content=resolveKnowledgeContent(request,prompt);
+  const width=1200,height=800;
+  const nodes:VisualNode[]=[
+    titleNode(content.title,width),
+    text("solar-subtitle",content.subtitle||"El Sol y los cuerpos que orbitan a su alrededor",64,118,950,34,15,700,C.muted)
+  ];
+  const planets=[
+    {name:"Mercurio",r:12,fill:"#94a3b8"},
+    {name:"Venus",r:18,fill:"#f59e0b"},
+    {name:"Tierra",r:19,fill:"#3b82f6"},
+    {name:"Marte",r:15,fill:"#ef4444"},
+    {name:"Júpiter",r:34,fill:"#d97706"},
+    {name:"Saturno",r:30,fill:"#eab308"},
+    {name:"Urano",r:24,fill:"#67e8f9"},
+    {name:"Neptuno",r:23,fill:"#2563eb"}
+  ];
+  const sunX=105,sunY=340;
+  nodes.push(circle("sun",sunX,sunY,52,"#fde047","#f59e0b"));
+  nodes.push(text("sun-label","Sol",sunX-28,sunY+68,56,26,16,850,C.amber,"middle"));
+  nodes.push(line("solar-axis",165,sunY,1120,sunY,{stroke:"#cbd5e1",strokeWidth:2,dash:[6,7]}));
+  const startX=225,endX=1085;
+  const spacing=(endX-startX)/(planets.length-1);
+  planets.forEach((planet,i)=>{
+    const x=startX+i*spacing;
+    nodes.push(circle("planet-"+i,x,sunY,planet.r,planet.fill,"#475569"));
+    if(planet.name==="Saturno"){
+      nodes.push(line("saturn-ring",x-43,sunY,x+43,sunY,{stroke:"#a16207",strokeWidth:3}));
+    }
+    nodes.push(text("planet-label-"+i,planet.name,x-52,sunY+54,104,30,13,700,C.ink,"middle"));
+  });
+
+  const cards=[
+    ["Planetas interiores","Mercurio, Venus, Tierra y Marte son rocosos y se encuentran más cerca del Sol."],
+    ["Planetas exteriores","Júpiter, Saturno, Urano y Neptuno son gigantes y se ubican en la región exterior."],
+    ["Otros cuerpos","El sistema también contiene planetas enanos, asteroides, cometas, meteoroides y satélites naturales."]
+  ];
+  cards.forEach((card,i)=>{
+    const x=64+i*365,y=500;
+    const palette=[[C.blueSoft,C.blue],[C.greenSoft,C.green],[C.violetSoft,C.violet]] as const;
+    const colors=palette[i]!;
+    nodes.push(rect("solar-card-"+i,x,y,330,190,colors[0],colors[1],22));
+    nodes.push(text("solar-card-title-"+i,card[0],x+24,y+22,282,42,19,800,C.ink));
+    nodes.push(text("solar-card-body-"+i,card[1],x+24,y+74,282,92,15,520,C.ink));
+  });
+
+  return createScene({
+    id:"studio-solar-system",width,height,background:"#f8fafc",
+    title:content.title,
+    description:content.subtitle,
+    metadata:{
+      source:"visual-studio/dynamic-compiler",
+      visual_type:"infographic",
+      selected_skills:["infographic","educational-image","science-diagram"],
+      topic:request.topic,
+      subject:"astronomía",
+      semanticRequirements:[
+        {id:"sun",nodeIds:["sun","sun-label"]},
+        {id:"eight-planets",nodeIds:planets.map((_,i)=>"planet-"+i)},
+        {id:"planet-labels",nodeIds:planets.map((_,i)=>"planet-label-"+i)}
+      ]
+    },
+    nodes
+  });
 }
 
 function compileInfographic(prompt:string):VisualScene{
-  const width=1200,height=800,topic=topicFromPrompt(prompt);
-  const normalized=topic.toLowerCase();
-  const conservation=/conservaci[oó]n.*materia/.test(normalized);
-  const sections=conservation?[
-    ["Principio","La materia no se crea ni se destruye: los átomos se reorganizan."],
-    ["En una reacción","Los reactivos y productos contienen la misma cantidad de cada elemento."],
-    ["Cómo comprobarlo","Cuenta los átomos a ambos lados y balancea los coeficientes cuando sea necesario."]
-  ]:[
-    ["Idea clave","Define el concepto central con una frase breve y verificable."],
-    ["Representación","Organiza relaciones, datos o pasos mediante elementos editables."],
-    ["Verificación","Comprueba que texto, cifras y estructura coincidan con la solicitud."]
-  ];
+  const request=parseVisualRequest(prompt);
+  if(request.normalizedTopic.includes("sistema solar"))return compileSolarSystemInfographic(prompt);
+  const content=resolveKnowledgeContent(request,prompt);
+  const width=1200,height=800;
+  const sections=content.sections.slice(0,6);
+  const cols=sections.length<=3?sections.length:3;
+  const rows=Math.ceil(sections.length/cols);
+  const gap=22;
+  const areaX=64,areaY=190,areaW=1072,areaH=510;
+  const cardW=(areaW-gap*(cols-1))/cols;
+  const cardH=(areaH-gap*(rows-1))/rows;
+  const palette=[
+    [C.blueSoft,C.blue],[C.greenSoft,C.green],[C.violetSoft,C.violet],
+    [C.amberSoft,C.amber],[C.redSoft,C.red],["#e0f2fe","#0284c7"]
+  ] as const;
   const nodes:VisualNode[]=[
-    titleNode(conservation?"Conservación de la materia":conciseTitle(prompt,topic),width),
-    text("topic-kicker","INFOGRAFÍA EDUCATIVA",64,118,300,28,13,800,C.blue)
+    titleNode(content.title,width),
+    text("topic-kicker",(content.subtitle||"INFOGRAFÍA EDUCATIVA").toUpperCase(),64,118,820,34,13,800,C.blue)
   ];
-  const colors=[[C.blueSoft,C.blue],[C.greenSoft,C.green],[C.violetSoft,C.violet]] as const;
+
   sections.forEach((section,i)=>{
-    const x=64+i*365,y=190;
-    nodes.push(rect("section-"+i,x,y,330,430,colors[i]![0],colors[i]![1],26));
-    nodes.push(circle("section-icon-"+i,x+54,y+60,24,"#ffffff",colors[i]![1]));
-    nodes.push(text("section-number-"+i,String(i+1),x+45,y+43,24,26,16,850,colors[i]![1]));
-    nodes.push(text("section-title-"+i,section[0],x+28,y+105,274,56,23,800,C.ink));
-    nodes.push(text("section-body-"+i,section[1],x+28,y+180,274,190,18,520,C.ink));
+    const row=Math.floor(i/cols),col=i%cols;
+    const x=areaX+col*(cardW+gap),y=areaY+row*(cardH+gap);
+    const colors=palette[i%palette.length]!;
+    nodes.push(rect("section-"+i,x,y,cardW,cardH,colors[0],colors[1],24));
+    nodes.push(circle("section-icon-"+i,x+42,y+42,20,"#ffffff",colors[1]));
+    nodes.push(text("section-number-"+i,String(i+1),x+31,y+27,22,24,14,850,colors[1],"middle"));
+    nodes.push(text("section-title-"+i,section.heading,x+24,y+74,cardW-48,Math.min(52,cardH*.24),20,800,C.ink));
+    const body=section.body||(section.bullets||[]).map(item=>"• "+item).join("\n");
+    nodes.push(text("section-body-"+i,body,x+24,y+132,cardW-48,Math.max(80,cardH-156),16,520,C.ink));
   });
-  if(conservation){
-    nodes.push({id:"infographic-equation",type:"math",x:376,y:685,latex:"\\ce{2H2 + O2 -> 2H2O}",scale:.72,paint:{fill:C.ink}});
+
+  if(content.formula){
+    nodes.push({id:"infographic-equation",type:"math",x:390,y:725,latex:chemicalLatex(content.formula),scale:.68,paint:{fill:C.ink}});
   }
 
   return createScene({
-    id:"studio-infographic",width,height,background:"#f8fafc",
-    title:conservation?"Conservación de la materia":topic,
+    id:"studio-infographic-"+request.normalizedTopic.replace(/[^a-z0-9]+/g,"-").slice(0,40),
+    width,height,background:"#f8fafc",
+    title:content.title,
+    description:content.subtitle||("Infografía educativa sobre "+request.topic),
     metadata:{
-      source:"visual-studio/enhanced-compiler",
+      source:"visual-studio/dynamic-compiler",
       visual_type:"infographic",
       selected_skills:["infographic","educational-image"],
-      semanticRequirements:[
-        {id:"three-sections",nodeIds:["section-0","section-1","section-2"]}
-      ]
+      topic:request.topic,
+      subject:request.subject||"general",
+      knowledgeMode:content.molecule?"molecule":"local-catalog",
+      semanticRequirements:sections.map((_,i)=>({id:"section-"+i,nodeIds:["section-"+i,"section-title-"+i,"section-body-"+i]}))
     },
     nodes
   });
@@ -295,10 +405,11 @@ function repairScene(scene:VisualScene):VisualScene{
 }
 
 export function compileStudioPrompt(prompt:string,plan:any):VisualScene{
-  const p=String(prompt||"");
+  const p=String(prompt||"").trim();
+  const request=parseVisualRequest(p);
   if(/homotecia/i.test(p))return compileHomothety(p);
-  if(/(?:mol[eé]cula\s+de\s+agua|\bH2O\b|\bH₂O\b)/i.test(p))return compileWaterChemistry(p);
-  if(/diagrama\s+de\s+flujo|flujo\s+del\s+proceso/i.test(p))return compileFlow(p);
-  if(/infograf[ií]a/i.test(p))return compileInfographic(p);
+  if(request.kind==="molecule")return compileMolecule(p);
+  if(request.kind==="flowchart")return compileFlow(p);
+  if(request.kind==="infographic")return compileInfographic(p);
   return repairScene(compilePlanToScene(plan) as VisualScene);
 }
